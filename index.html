@@ -4,135 +4,229 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Meta Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f8fafc;
-    --surface: #ffffff;
-    --border: #e2e8f0;
-    --text: #0f172a;
-    --text-secondary: #64748b;
-    --text-muted: #94a3b8;
-    --green-bg: #ecfdf5; --green-text: #047857; --green-dot: #10b981;
-    --amber-bg: #fffbeb; --amber-text: #b45309; --amber-dot: #f59e0b;
-    --red-bg: #fef2f2; --red-text: #b91c1c; --red-dot: #ef4444;
-    --slate-dot: #94a3b8;
+    --bg: #05080f;
+    --bg-grid: #070c16;
+    --surface: #0a1120;
+    --surface-2: #0d1626;
+    --border: #16324a;
+    --border-bright: #1f6f8f;
+    --text: #d8f3ff;
+    --text-secondary: #7fa8c4;
+    --text-muted: #4a6a85;
+    --cyan: #22e5ff;
+    --cyan-dim: #0e8fae;
+    --green-bg: rgba(16,255,163,0.08); --green-text: #10ffa3; --green-dot: #10ffa3;
+    --amber-bg: rgba(255,183,3,0.1); --amber-text: #ffb703; --amber-dot: #ffb703;
+    --red-bg: rgba(255,59,92,0.1); --red-text: #ff3b5c; --red-dot: #ff3b5c;
+    --slate-dot: #4a6a85;
+    --font-display: "Chakra Petch", sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
   }
   * { box-sizing: border-box; }
+  ::selection { background: rgba(34,229,255,0.25); color: #fff; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
+    font-family: var(--font-mono);
+    background:
+      linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0 / 100% 28px,
+      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px) 0 0 / 28px 100%,
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(34,229,255,0.08), transparent 60%),
+      var(--bg);
     color: var(--text);
+    min-height: 100vh;
   }
   header {
     position: sticky; top: 0; z-index: 10;
     display: flex; align-items: center; justify-content: space-between;
-    height: 56px; padding: 0 24px;
-    background: rgba(255,255,255,0.92); backdrop-filter: blur(6px);
+    height: 60px; padding: 0 24px;
+    background: rgba(5,8,15,0.85); backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--border);
   }
-  header .brand { font-weight: 600; font-size: 14px; }
-  .layout { display: flex; min-height: calc(100vh - 56px); }
+  header .brand {
+    font-family: var(--font-display); font-weight: 700; font-size: 16px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--text);
+    display: flex; align-items: center; gap: 10px;
+  }
+  header .brand .pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--cyan);
+    box-shadow: 0 0 8px 2px rgba(34,229,255,0.8);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .header-controls { display: flex; align-items: center; gap: 10px; }
+
+  .layout { display: flex; min-height: calc(100vh - 60px); }
   nav.sidebar {
-    width: 200px; flex-shrink: 0; padding: 24px 12px;
-    background: var(--surface); border-right: 1px solid var(--border);
+    width: 208px; flex-shrink: 0; padding: 24px 12px;
+    background: rgba(10,17,32,0.5); border-right: 1px solid var(--border);
   }
   nav.sidebar a {
-    display: block; padding: 8px 12px; margin-bottom: 2px;
-    border-radius: 8px; font-size: 13px; font-weight: 500;
+    display: block; padding: 9px 12px; margin-bottom: 4px;
+    border-radius: 4px; font-size: 12px; font-weight: 500;
+    letter-spacing: 0.04em; text-transform: uppercase;
     color: var(--text-secondary); text-decoration: none; cursor: pointer;
+    border-left: 2px solid transparent;
   }
-  nav.sidebar a.active { background: #0f172a; color: #fff; }
-  nav.sidebar a:hover:not(.active) { background: #f1f5f9; color: var(--text); }
-  main { flex: 1; padding: 32px; max-width: 1200px; }
+  nav.sidebar a.active {
+    background: rgba(34,229,255,0.08); color: var(--cyan);
+    border-left: 2px solid var(--cyan);
+  }
+  nav.sidebar a:hover:not(.active) { background: rgba(255,255,255,0.03); color: var(--text); }
+  main { flex: 1; padding: 32px; max-width: 1240px; }
   .page { display: none; }
   .page.active { display: block; }
-  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-  .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 24px; }
+  h1 {
+    font-family: var(--font-display); font-size: 22px; font-weight: 700;
+    letter-spacing: 0.03em; margin: 0 0 4px; color: var(--text);
+    text-transform: uppercase;
+  }
+  .subtitle { font-size: 12px; color: var(--text-secondary); margin: 0 0 24px; letter-spacing: 0.02em; }
 
   .setup-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 24px; max-width: 480px; margin: 40px auto;
+    background: var(--surface); border: 1px solid var(--border-bright); border-radius: 4px;
+    padding: 28px; max-width: 480px; margin: 60px auto;
+    box-shadow: 0 0 40px rgba(34,229,255,0.06), inset 0 0 40px rgba(34,229,255,0.02);
+    position: relative;
   }
-  .setup-card h2 { font-size: 16px; margin: 0 0 8px; }
-  .setup-card p { font-size: 13px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.5; }
-  .field { margin-bottom: 14px; }
-  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; }
+  .setup-card::before, .setup-card::after {
+    content: ""; position: absolute; width: 16px; height: 16px; border: 2px solid var(--cyan);
+  }
+  .setup-card::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .setup-card::after { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+  .setup-card h2 { font-family: var(--font-display); font-size: 16px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .setup-card p { font-size: 12px; color: var(--text-secondary); margin: 0 0 18px; line-height: 1.6; }
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block; font-size: 10px; font-weight: 600; color: var(--cyan-dim);
+    margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase;
+  }
   .field input, select {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
-    font-size: 13px; font-family: inherit; background: #fff; color: var(--text);
+    width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 3px;
+    font-size: 12px; font-family: var(--font-mono); background: var(--bg); color: var(--text);
   }
-  .field input:focus, select:focus { outline: none; border-color: #94a3b8; }
+  .field input:focus, select:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(34,229,255,0.3); }
+  select { cursor: pointer; }
   button.primary {
-    background: #0f172a; color: #fff; border: none; border-radius: 8px;
-    padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+    background: var(--cyan); color: #051018; border: none; border-radius: 3px;
+    padding: 10px 18px; font-size: 12px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; cursor: pointer; font-family: var(--font-display);
+    box-shadow: 0 0 16px rgba(34,229,255,0.35);
   }
-  button.primary:hover { background: #1e293b; }
+  button.primary:hover { box-shadow: 0 0 24px rgba(34,229,255,0.55); }
   button.secondary {
-    background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 8px;
-    padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+    background: transparent; color: var(--cyan); border: 1px solid var(--border-bright); border-radius: 3px;
+    padding: 9px 16px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; cursor: pointer; font-family: var(--font-display);
   }
-  .hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+  button.secondary:hover { background: rgba(34,229,255,0.06); }
+  .hint { font-size: 10px; color: var(--text-muted); margin-top: 8px; letter-spacing: 0.02em; }
 
-  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-  .metric-card .label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
-  .metric-card .value { font-size: 20px; font-weight: 600; }
-  .metric-card .sub { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .metric-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px;
+    position: relative;
+  }
+  .metric-card::before {
+    content: ""; position: absolute; top: 0; left: 0; width: 10px; height: 10px;
+    border-top: 1px solid var(--cyan-dim); border-left: 1px solid var(--cyan-dim);
+  }
+  .metric-card .label {
+    font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;
+    letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--font-mono);
+  }
+  .metric-card .value {
+    font-size: 22px; font-weight: 700; font-family: var(--font-display); color: var(--text);
+    text-shadow: 0 0 12px rgba(34,229,255,0.15);
+  }
+  .metric-card .sub { font-size: 10px; color: var(--text-muted); margin-top: 6px; }
 
-  .health-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
-  .health-score { font-size: 36px; font-weight: 700; }
-  .health-score span { font-size: 14px; color: var(--text-muted); font-weight: 400; }
-  .health-breakdown { display: flex; gap: 20px; text-align: center; font-size: 11px; color: var(--text-secondary); }
-  .health-breakdown b { display: block; font-size: 15px; color: var(--text); }
+  .health-card {
+    background: var(--surface); border: 1px solid var(--border-bright); border-radius: 4px; padding: 22px;
+    margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+    box-shadow: 0 0 30px rgba(34,229,255,0.05);
+  }
+  .health-score {
+    font-family: var(--font-display); font-size: 42px; font-weight: 700; color: var(--cyan);
+    text-shadow: 0 0 20px rgba(34,229,255,0.5);
+  }
+  .health-score span { font-size: 14px; color: var(--text-muted); font-weight: 400; font-family: var(--font-mono); }
+  .health-breakdown { display: flex; gap: 22px; text-align: center; font-size: 9px; color: var(--text-secondary); letter-spacing: 0.06em; text-transform: uppercase; }
+  .health-breakdown b { display: block; font-size: 16px; color: var(--text); font-family: var(--font-display); margin-bottom: 2px; }
 
-  table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  thead th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 500; color: var(--text-secondary); background: #f8fafc; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; color: var(--text); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  thead th {
+    text-align: left; padding: 11px 12px; font-size: 10px; font-weight: 600; color: var(--cyan-dim);
+    background: var(--surface-2); border-bottom: 1px solid var(--border); white-space: nowrap;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  tbody td { padding: 11px 12px; border-bottom: 1px solid rgba(22,50,74,0.5); white-space: nowrap; color: var(--text); }
   tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover { background: #f8fafc; }
-  .table-wrap { overflow-x: auto; border-radius: 12px; }
+  tbody tr:hover { background: rgba(34,229,255,0.04); }
+  .table-wrap { overflow-x: auto; border-radius: 4px; position: relative; transition: box-shadow 0.15s; }
+  .table-wrap.scroll-right { box-shadow: inset -24px 0 16px -20px rgba(34,229,255,0.15); }
+  .table-wrap.scroll-left { box-shadow: inset 24px 0 16px -20px rgba(34,229,255,0.15); }
+  .table-wrap.scroll-right.scroll-left { box-shadow: inset -24px 0 16px -20px rgba(34,229,255,0.15), inset 24px 0 16px -20px rgba(34,229,255,0.15); }
+  .scroll-nudge { font-size: 10px; color: var(--text-muted); margin: 8px 2px 0; display: none; letter-spacing: 0.03em; }
+  .table-wrap.scroll-right ~ .scroll-nudge { display: block; }
 
-  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; }
-  .badge.green { background: var(--green-bg); color: var(--green-text); }
-  .badge.amber { background: var(--amber-bg); color: var(--amber-text); }
-  .badge.red { background: var(--red-bg); color: var(--red-text); }
-  .badge.slate { background: #f1f5f9; color: var(--text-muted); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 3px;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid;
+  }
+  .badge.green { background: var(--green-bg); color: var(--green-text); border-color: rgba(16,255,163,0.3); }
+  .badge.amber { background: var(--amber-bg); color: var(--amber-text); border-color: rgba(255,183,3,0.3); }
+  .badge.red { background: var(--red-bg); color: var(--red-text); border-color: rgba(255,59,92,0.3); }
+  .badge.slate { background: rgba(74,106,133,0.1); color: var(--text-muted); border-color: var(--border); }
   .badge .dot { width: 6px; height: 6px; border-radius: 50%; }
-  .badge.green .dot { background: var(--green-dot); }
-  .badge.amber .dot { background: var(--amber-dot); }
-  .badge.red .dot { background: var(--red-dot); }
+  .badge.green .dot { background: var(--green-dot); box-shadow: 0 0 6px var(--green-dot); }
+  .badge.amber .dot { background: var(--amber-dot); box-shadow: 0 0 6px var(--amber-dot); }
+  .badge.red .dot { background: var(--red-dot); box-shadow: 0 0 6px var(--red-dot); }
   .badge.slate .dot { background: var(--slate-dot); }
 
-  .alert-card { border-radius: 10px; padding: 14px; border-left: 4px solid; margin-bottom: 10px; }
-  .alert-card.critico { border-color: #ef4444; background: var(--red-bg); }
-  .alert-card.importante { border-color: #f59e0b; background: var(--amber-bg); }
-  .alert-card.oportunidade { border-color: #10b981; background: var(--green-bg); }
-  .alert-card .level { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .alert-card { border-radius: 4px; padding: 16px; border-left: 3px solid; margin-bottom: 10px; background: var(--surface); border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .alert-card.critico { border-left-color: var(--red-text); box-shadow: -3px 0 16px -6px rgba(255,59,92,0.3); }
+  .alert-card.importante { border-left-color: var(--amber-text); box-shadow: -3px 0 16px -6px rgba(255,183,3,0.25); }
+  .alert-card.oportunidade { border-left-color: var(--green-text); box-shadow: -3px 0 16px -6px rgba(16,255,163,0.25); }
+  .alert-card .level { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-display); }
   .alert-card.critico .level { color: var(--red-text); }
   .alert-card.importante .level { color: var(--amber-text); }
   .alert-card.oportunidade .level { color: var(--green-text); }
-  .alert-card .problem { font-weight: 600; font-size: 13px; margin: 6px 0; }
-  .alert-card dl { margin: 0; font-size: 12px; }
-  .alert-card dl div { margin-bottom: 3px; color: var(--text-secondary); }
-  .alert-card dl b { color: var(--text); font-weight: 500; }
+  .alert-card .problem { font-weight: 600; font-size: 13px; margin: 8px 0; color: var(--text); }
+  .alert-card dl { margin: 0; font-size: 11px; }
+  .alert-card dl div { margin-bottom: 4px; color: var(--text-secondary); line-height: 1.5; }
+  .alert-card dl b { color: var(--cyan-dim); font-weight: 600; }
 
-  .empty-state { text-align: center; padding: 60px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
-  .empty-state h3 { font-size: 15px; margin: 0 0 6px; }
-  .empty-state p { font-size: 13px; color: var(--text-secondary); max-width: 380px; margin: 0 auto; }
+  .empty-state { text-align: center; padding: 70px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+  .empty-state h3 { font-family: var(--font-display); font-size: 15px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text); }
+  .empty-state p { font-size: 12px; color: var(--text-secondary); max-width: 380px; margin: 0 auto; line-height: 1.6; }
 
-  .loading { text-align: center; padding: 60px; color: var(--text-secondary); font-size: 13px; }
+  .loading { text-align: center; padding: 70px; color: var(--cyan-dim); font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .loading::after { content: ""; display: inline-block; width: 10px; }
   .section { margin-bottom: 28px; }
-  .section h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
-  .flag { display: inline-block; font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-right: 4px; margin-top: 4px; }
-  .flag.red { background: var(--red-bg); color: var(--red-text); }
-  .flag.amber { background: var(--amber-bg); color: var(--amber-text); }
+  .section h2 {
+    font-family: var(--font-display); font-size: 12px; font-weight: 600; margin: 0 0 12px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--cyan-dim);
+  }
+  .flag { display: inline-block; font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 3px; margin-right: 4px; margin-top: 5px; letter-spacing: 0.03em; text-transform: uppercase; }
+  .flag.red { background: var(--red-bg); color: var(--red-text); border: 1px solid rgba(255,59,92,0.3); }
+  .flag.amber { background: var(--amber-bg); color: var(--amber-text); border: 1px solid rgba(255,183,3,0.3); }
+
+  .period-select {
+    width: auto; min-width: 150px; padding: 7px 10px; font-size: 11px;
+  }
+  .period-custom { display: flex; gap: 6px; align-items: center; }
+  .period-custom input[type="date"] { width: auto; padding: 6px 8px; font-size: 11px; }
 </style>
 </head>
 <body>
 
 <header>
-  <span class="brand">Meta Performance</span>
+  <span class="brand"><span class="pulse"></span>Meta Performance</span>
   <div id="header-controls"></div>
 </header>
 
@@ -152,6 +246,28 @@ const NAV_ITEMS = [
   { id: "andromeda", label: "Andromeda" },
   { id: "plano", label: "Plano de ação" },
 ];
+
+const PERIOD_PRESETS = [
+  { id: "7", label: "Últimos 7 dias", days: 7 },
+  { id: "14", label: "Últimos 14 dias", days: 14 },
+  { id: "30", label: "Últimos 30 dias", days: 30 },
+  { id: "60", label: "Últimos 60 dias", days: 60 },
+  { id: "90", label: "Últimos 90 dias", days: 90 },
+  { id: "custom", label: "Período personalizado", days: null },
+];
+
+function computePeriod(presetId) {
+  const preset = PERIOD_PRESETS.find(p => p.id === presetId) || PERIOD_PRESETS[2];
+  if (preset.id === "custom") {
+    const fallback = computePeriod("30");
+    return { preset: "custom", since: state.period?.since || fallback.since, until: state.period?.until || fallback.until };
+  }
+  const until = new Date();
+  const since = new Date();
+  since.setDate(since.getDate() - preset.days);
+  const fmt = d => d.toISOString().split("T")[0];
+  return { preset: preset.id, since: fmt(since), until: fmt(until) };
+}
 
 const BENCHMARK = {
   cpm: { min: 15, max: 35 },
@@ -177,10 +293,12 @@ const ACTION_LABELS = {
 let state = {
   token: localStorage.getItem("meta_perf_token") || "",
   accountId: localStorage.getItem("meta_perf_account") || "",
+  period: computePeriod("30"),
   accounts: [],
   campaigns: [],
   adSets: [],
   ads: [],
+  timeSeries: [],
   currentPage: "overview",
   loading: false,
   error: null,
@@ -231,11 +349,7 @@ function normalizeMetrics(insight) {
 }
 
 function dateRange() {
-  const until = new Date();
-  const since = new Date();
-  since.setDate(since.getDate() - 30);
-  const fmt = d => d.toISOString().split("T")[0];
-  return { since: fmt(since), until: fmt(until) };
+  return { since: state.period.since, until: state.period.until };
 }
 
 async function fetchAccounts() {
@@ -294,7 +408,20 @@ async function fetchBundle(accountId) {
     metrics: normalizeMetrics(a.insights?.data?.[0]),
   }));
 
-  return { campaigns, adSets, ads, since, until };
+  let timeSeries = [];
+  try {
+    const tsRes = await graphGet(`/${accountId}/insights`, {
+      fields: insightFields,
+      time_range: timeRangeParam.replace(/'/g, '"'),
+      time_increment: 1,
+      limit: 500,
+    });
+    timeSeries = (tsRes.data || []).map(d => ({ date: d.date_start, ...normalizeMetrics(d) }));
+  } catch (e) {
+    timeSeries = [];
+  }
+
+  return { campaigns, adSets, ads, since, until, timeSeries };
 }
 
 // ---------- Diagnostics (client-side) ----------
@@ -388,6 +515,77 @@ function healthScore(campaigns, adSets, ads) {
   return { score: Math.min(100, Math.max(0, score)), ctrScore: Math.round(ctrScore), cpmScore: Math.round(cpmScore), freqScore: Math.round(freqScore), creativeScore: Math.round(creativeScore), structureScore: Math.round(structureScore) };
 }
 
+// ---------- Gráfico de evolução (SVG puro, sem dependências) ----------
+
+function buildLineChart(series, config) {
+  const { key, label, color, isCurrency } = config;
+  const width = 560, height = 160, padding = { top: 12, right: 12, bottom: 22, left: 44 };
+  const points = series.map(d => ({ date: d.date, value: d[key] }));
+  const values = points.map(p => p.value).filter(v => v !== null && v !== undefined);
+
+  if (values.length === 0) {
+    return `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:12px;border:1px dashed var(--border);border-radius:10px">Sem dados de "${label}" disponíveis para o período.</div>`;
+  }
+
+  const maxV = Math.max(...values, 0.0001);
+  const minV = Math.min(...values, 0);
+  const range = maxV - minV || 1;
+  const innerW = width - padding.left - padding.right;
+  const innerH = height - padding.top - padding.bottom;
+
+  const coords = points.map((p, i) => {
+    const x = padding.left + (i / Math.max(points.length - 1, 1)) * innerW;
+    const y = p.value === null ? null : padding.top + innerH - ((p.value - minV) / range) * innerH;
+    return { x, y, date: p.date, value: p.value };
+  });
+
+  const validCoords = coords.filter(c => c.y !== null);
+  const pathD = validCoords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
+  const areaD = validCoords.length > 0
+    ? `${pathD} L ${validCoords[validCoords.length - 1].x.toFixed(1)} ${(padding.top + innerH).toFixed(1)} L ${validCoords[0].x.toFixed(1)} ${(padding.top + innerH).toFixed(1)} Z`
+    : "";
+
+  const dots = validCoords.map(c => `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="2.5" fill="${color}"><title>${c.date}: ${isCurrency ? fmtCurrency(c.value) : fmtNum(c.value, 0)}</title></circle>`).join("");
+
+  const firstLabel = points[0]?.date ? points[0].date.slice(5) : "";
+  const lastLabel = points[points.length - 1]?.date ? points[points.length - 1].date.slice(5) : "";
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" style="width:100%;height:auto;overflow:visible">
+      <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + innerH}" stroke="var(--border)" stroke-width="1" />
+      <line x1="${padding.left}" y1="${padding.top + innerH}" x2="${width - padding.right}" y2="${padding.top + innerH}" stroke="var(--border)" stroke-width="1" />
+      <text x="${padding.left - 6}" y="${padding.top + 4}" text-anchor="end" font-size="9" fill="var(--text-muted)">${isCurrency ? fmtCurrency(maxV) : fmtNum(maxV)}</text>
+      <text x="${padding.left - 6}" y="${padding.top + innerH}" text-anchor="end" font-size="9" fill="var(--text-muted)">${isCurrency ? fmtCurrency(minV) : fmtNum(minV)}</text>
+      <text x="${padding.left}" y="${height - 4}" font-size="9" fill="var(--text-muted)">${firstLabel}</text>
+      <text x="${width - padding.right}" y="${height - 4}" text-anchor="end" font-size="9" fill="var(--text-muted)">${lastLabel}</text>
+      <path d="${areaD}" fill="${color}" opacity="0.08" />
+      <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+      ${dots}
+    </svg>`;
+}
+
+function renderEvolutionCharts() {
+  const series = state.timeSeries;
+  if (!series || series.length === 0) {
+    return `<div class="empty-state"><h3>Série temporal não disponível</h3><p>Não foi possível carregar a evolução diária para o período selecionado.</p></div>`;
+  }
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <b style="font-size:12px">Investimento por dia</b>
+        ${buildLineChart(series, { key: "spend", label: "Investimento", color: "#22e5ff", isCurrency: true })}
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <b style="font-size:12px">Resultados por dia</b>
+        ${buildLineChart(series, { key: "results", label: "Resultados", color: "#10ffa3", isCurrency: false })}
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <b style="font-size:12px">Custo por resultado por dia</b>
+        ${buildLineChart(series, { key: "costPerResult", label: "Custo por resultado", color: "#ffb703", isCurrency: true })}
+      </div>
+    </div>`;
+}
+
 function rankAds(ads) {
   const withData = ads.filter(a => a.metrics.costPerResult !== null);
   const withoutData = ads.filter(a => a.metrics.costPerResult === null);
@@ -427,9 +625,47 @@ function renderHeader() {
   const el = document.getElementById("header-controls");
   if (!state.token) { el.innerHTML = ""; return; }
   const opts = state.accounts.map(a => `<option value="${a.id}" ${a.id === state.accountId ? "selected" : ""}>${esc(a.name || a.id)}</option>`).join("");
-  el.innerHTML = `<select id="account-select" style="width:220px">${opts || '<option value="">Nenhuma conta</option>'}</select>`;
+
+  const periodOpts = PERIOD_PRESETS.map(p =>
+    `<option value="${p.id}" ${state.period.preset === p.id ? "selected" : ""}>${p.label}</option>`
+  ).join("");
+
+  const customRange = state.period.preset === "custom"
+    ? `<div class="period-custom">
+        <input type="date" id="since-input" value="${state.period.since}" />
+        <span style="color:var(--text-muted);font-size:11px">até</span>
+        <input type="date" id="until-input" value="${state.period.until}" />
+        <button class="secondary" id="apply-custom-range" style="padding:6px 10px">Aplicar</button>
+      </div>`
+    : "";
+
+  el.innerHTML = `
+    <div class="header-controls">
+      <select id="period-select" class="period-select">${periodOpts}</select>
+      ${customRange}
+      <select id="account-select" style="width:220px">${opts || '<option value="">Nenhuma conta</option>'}</select>
+    </div>`;
+
   const sel = document.getElementById("account-select");
   if (sel) sel.onchange = (e) => { state.accountId = e.target.value; localStorage.setItem("meta_perf_account", state.accountId); loadAccountData(); };
+
+  const periodSel = document.getElementById("period-select");
+  if (periodSel) periodSel.onchange = (e) => {
+    const preset = e.target.value;
+    state.period = computePeriod(preset);
+    render();
+    if (preset !== "custom") loadAccountData();
+  };
+
+  const applyBtn = document.getElementById("apply-custom-range");
+  if (applyBtn) applyBtn.onclick = () => {
+    const since = document.getElementById("since-input").value;
+    const until = document.getElementById("until-input").value;
+    if (since && until) {
+      state.period = { preset: "custom", since, until };
+      loadAccountData();
+    }
+  };
 }
 
 function renderSidebar() {
@@ -482,6 +718,20 @@ function renderMain() {
     andromeda: renderAndromeda, plano: renderPlano,
   };
   el.innerHTML = (pages[state.currentPage] || renderOverview)();
+  setupTableScrollHints();
+}
+
+function setupTableScrollHints() {
+  document.querySelectorAll(".table-wrap").forEach(wrap => {
+    const update = () => {
+      const scrollable = wrap.scrollWidth > wrap.clientWidth + 1;
+      wrap.classList.toggle("scroll-right", scrollable && wrap.scrollLeft < wrap.scrollWidth - wrap.clientWidth - 1);
+      wrap.classList.toggle("scroll-left", wrap.scrollLeft > 1);
+    };
+    update();
+    wrap.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+  });
 }
 
 function renderOverview() {
@@ -501,7 +751,7 @@ function renderOverview() {
 
   return `
     <h1>Overview</h1>
-    <p class="subtitle">${campaigns.length} campanha(s) ativa(s) &middot; últimos 30 dias</p>
+    <p class="subtitle">${campaigns.length} campanha(s) ativa(s) &middot; ${state.period.since} a ${state.period.until}</p>
     <div class="health-card">
       <div><div class="metric-card" style="border:none;padding:0"><div class="label">Health Score da conta</div><div class="health-score">${hs.score}<span>/100</span></div></div></div>
       <div class="health-breakdown">
@@ -519,6 +769,10 @@ function renderOverview() {
       <div class="metric-card"><div class="label">CPC</div><div class="value">${fmtCurrency(cpc)}</div></div>
       <div class="metric-card"><div class="label">Alcance</div><div class="value">${fmtNum(reach)}</div></div>
       <div class="metric-card"><div class="label">Frequência</div><div class="value">${fmtNum(frequency, 2)}</div></div>
+    </div>
+    <div class="section">
+      <h2>Evolução no período</h2>
+      ${renderEvolutionCharts()}
     </div>`;
 }
 
@@ -538,7 +792,7 @@ function renderCampanhas() {
       <td>${badgeHtml(campaignHealth(c))}</td>
     </tr>`).join("");
   return `<h1>Campanhas</h1><p class="subtitle">${campaigns.length} campanha(s) ativa(s)</p>
-    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
 }
 
 function renderAdSets() {
@@ -559,7 +813,7 @@ function renderAdSets() {
       <td>${badgeHtml(adSetHealth(a))}</td>
     </tr>`).join("");
   return `<h1>Ad Sets</h1><p class="subtitle">${adSets.length} ad set(s) ativo(s)</p>
-    <div class="table-wrap"><table><thead><tr><th>Ad set</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="table-wrap"><table><thead><tr><th>Ad set</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
 }
 
 function renderCriativos() {
@@ -578,7 +832,7 @@ function renderCriativos() {
       <td><span class="badge ${color}"><span class="dot"></span>${label}</span></td>
     </tr>`; }).join("");
   return `<h1>Ranking de criativos</h1><p class="subtitle">Ordenado por custo por resultado e CTR</p>
-    <div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CTR</th><th>Classificação</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CTR</th><th>Classificação</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
 }
 
 function renderBenchmark() {
@@ -716,6 +970,7 @@ async function loadAccountData() {
   try {
     const bundle = await fetchBundle(state.accountId);
     state.campaigns = bundle.campaigns; state.adSets = bundle.adSets; state.ads = bundle.ads;
+    state.timeSeries = bundle.timeSeries;
     state.loading = false; render();
   } catch (err) {
     state.loading = false; state.error = err.message; render();
