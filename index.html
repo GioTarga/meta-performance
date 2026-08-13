@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meta Performance</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --green-bg: #ecfdf5; --green-text: #047857; --green-dot: #10b981;
+    --amber-bg: #fffbeb; --amber-text: #b45309; --amber-dot: #f59e0b;
+    --red-bg: #fef2f2; --red-text: #b91c1c; --red-dot: #ef4444;
+    --slate-dot: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px; padding: 0 24px;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+  }
+  header .brand { font-weight: 600; font-size: 14px; }
+  .layout { display: flex; min-height: calc(100vh - 56px); }
+  nav.sidebar {
+    width: 200px; flex-shrink: 0; padding: 24px 12px;
+    background: var(--surface); border-right: 1px solid var(--border);
+  }
+  nav.sidebar a {
+    display: block; padding: 8px 12px; margin-bottom: 2px;
+    border-radius: 8px; font-size: 13px; font-weight: 500;
+    color: var(--text-secondary); text-decoration: none; cursor: pointer;
+  }
+  nav.sidebar a.active { background: #0f172a; color: #fff; }
+  nav.sidebar a:hover:not(.active) { background: #f1f5f9; color: var(--text); }
+  main { flex: 1; padding: 32px; max-width: 1200px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 24px; }
+
+  .setup-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; max-width: 480px; margin: 40px auto;
+  }
+  .setup-card h2 { font-size: 16px; margin: 0 0 8px; }
+  .setup-card p { font-size: 13px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.5; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; }
+  .field input, select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 13px; font-family: inherit; background: #fff; color: var(--text);
+  }
+  .field input:focus, select:focus { outline: none; border-color: #94a3b8; }
+  button.primary {
+    background: #0f172a; color: #fff; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  button.primary:hover { background: #1e293b; }
+  button.secondary {
+    background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .metric-card .label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+  .metric-card .value { font-size: 20px; font-weight: 600; }
+  .metric-card .sub { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+  .health-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  .health-score { font-size: 36px; font-weight: 700; }
+  .health-score span { font-size: 14px; color: var(--text-muted); font-weight: 400; }
+  .health-breakdown { display: flex; gap: 20px; text-align: center; font-size: 11px; color: var(--text-secondary); }
+  .health-breakdown b { display: block; font-size: 15px; color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  thead th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 500; color: var(--text-secondary); background: #f8fafc; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; color: var(--text); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #f8fafc; }
+  .table-wrap { overflow-x: auto; border-radius: 12px; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+  .badge.green { background: var(--green-bg); color: var(--green-text); }
+  .badge.amber { background: var(--amber-bg); color: var(--amber-text); }
+  .badge.red { background: var(--red-bg); color: var(--red-text); }
+  .badge.slate { background: #f1f5f9; color: var(--text-muted); }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge.green .dot { background: var(--green-dot); }
+  .badge.amber .dot { background: var(--amber-dot); }
+  .badge.red .dot { background: var(--red-dot); }
+  .badge.slate .dot { background: var(--slate-dot); }
+
+  .alert-card { border-radius: 10px; padding: 14px; border-left: 4px solid; margin-bottom: 10px; }
+  .alert-card.critico { border-color: #ef4444; background: var(--red-bg); }
+  .alert-card.importante { border-color: #f59e0b; background: var(--amber-bg); }
+  .alert-card.oportunidade { border-color: #10b981; background: var(--green-bg); }
+  .alert-card .level { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .alert-card.critico .level { color: var(--red-text); }
+  .alert-card.importante .level { color: var(--amber-text); }
+  .alert-card.oportunidade .level { color: var(--green-text); }
+  .alert-card .problem { font-weight: 600; font-size: 13px; margin: 6px 0; }
+  .alert-card dl { margin: 0; font-size: 12px; }
+  .alert-card dl div { margin-bottom: 3px; color: var(--text-secondary); }
+  .alert-card dl b { color: var(--text); font-weight: 500; }
+
+  .empty-state { text-align: center; padding: 60px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .empty-state h3 { font-size: 15px; margin: 0 0 6px; }
+  .empty-state p { font-size: 13px; color: var(--text-secondary); max-width: 380px; margin: 0 auto; }
+
+  .loading { text-align: center; padding: 60px; color: var(--text-secondary); font-size: 13px; }
+  .section { margin-bottom: 28px; }
+  .section h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+  .flag { display: inline-block; font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-right: 4px; margin-top: 4px; }
+  .flag.red { background: var(--red-bg); color: var(--red-text); }
+  .flag.amber { background: var(--amber-bg); color: var(--amber-text); }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">Meta Performance</span>
+  <div id="header-controls"></div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
+const NAV_ITEMS = [
+  { id: "overview", label: "Overview" },
+  { id: "campanhas", label: "Campanhas" },
+  { id: "adsets", label: "Ad Sets" },
+  { id: "criativos", label: "Criativos" },
+  { id: "benchmark", label: "Benchmark" },
+  { id: "alertas", label: "Alertas" },
+  { id: "andromeda", label: "Andromeda" },
+  { id: "plano", label: "Plano de ação" },
+];
+
+const BENCHMARK = {
+  cpm: { min: 15, max: 35 },
+  cpl: { min: 0, max: 27.66 },
+  ctr: { min: 1.42, max: 2.59 },
+  cpc: { min: 1.92, max: 2.52 },
+  alertFrequency: 2.5,
+  minAudience: 50000,
+};
+
+const ACTION_LABELS = {
+  "onsite_conversion.messaging_conversation_started_7d": "Conversas iniciadas",
+  "onsite_conversion.lead_grouped": "Leads",
+  "offsite_conversion.fb_pixel_lead": "Leads (pixel)",
+  "lead": "Leads",
+  "leadgen.other": "Leads",
+  "link_click": "Cliques no link",
+  "purchase": "Compras",
+  "offsite_conversion.fb_pixel_purchase": "Compras (pixel)",
+  "post_engagement": "Engajamentos",
+};
+
+let state = {
+  token: localStorage.getItem("meta_perf_token") || "",
+  accountId: localStorage.getItem("meta_perf_account") || "",
+  accounts: [],
+  campaigns: [],
+  adSets: [],
+  ads: [],
+  currentPage: "overview",
+  loading: false,
+  error: null,
+};
+
+// ---------- Graph API helpers ----------
+
+async function graphGet(path, params) {
+  const url = new URL(`https://graph.facebook.com/v21.0${path}`);
+  url.searchParams.set("access_token", state.token);
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v !== undefined) url.searchParams.set(k, v);
+  }
+  const res = await fetch(url.toString());
+  const json = await res.json();
+  if (!res.ok || json.error) {
+    throw new Error(json?.error?.message || `Erro na Graph API (${res.status})`);
+  }
+  return json;
+}
+
+function toNum(v) {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function primaryResult(insight) {
+  const actions = insight?.actions;
+  if (!actions || actions.length === 0) return { results: null, costPerResult: null, resultType: null };
+  const known = actions.filter(a => ACTION_LABELS[a.action_type]);
+  const candidates = known.length > 0 ? known : actions;
+  const best = candidates.reduce((max, cur) => (toNum(cur.value) || 0) > (toNum(max.value) || 0) ? cur : max, candidates[0]);
+  const results = toNum(best.value);
+  const resultType = ACTION_LABELS[best.action_type] || best.action_type;
+  const costEntry = insight?.cost_per_action_type?.find(c => c.action_type === best.action_type);
+  return { results, costPerResult: costEntry ? toNum(costEntry.value) : null, resultType };
+}
+
+function normalizeMetrics(insight) {
+  if (!insight) return { spend: null, impressions: null, reach: null, cpm: null, ctr: null, cpc: null, frequency: null, results: null, costPerResult: null, resultType: null };
+  const { results, costPerResult, resultType } = primaryResult(insight);
+  return {
+    spend: toNum(insight.spend), impressions: toNum(insight.impressions), reach: toNum(insight.reach),
+    cpm: toNum(insight.cpm), ctr: toNum(insight.ctr), cpc: toNum(insight.cpc), frequency: toNum(insight.frequency),
+    results, costPerResult, resultType,
+  };
+}
+
+function dateRange() {
+  const until = new Date();
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const fmt = d => d.toISOString().split("T")[0];
+  return { since: fmt(since), until: fmt(until) };
+}
+
+async function fetchAccounts() {
+  const res = await graphGet("/me/adaccounts", { fields: "id,name,currency" });
+  return res.data || [];
+}
+
+async function fetchBundle(accountId) {
+  const { since, until } = dateRange();
+  const insightFields = "spend,impressions,reach,cpm,ctr,cpc,frequency,actions,cost_per_action_type";
+  const timeRangeParam = `{'since':'${since}','until':'${until}'}`;
+
+  const [campaignsRes, adsetsRes, adsRes] = await Promise.all([
+    graphGet(`/${accountId}/campaigns`, {
+      fields: `id,name,objective,effective_status,daily_budget,bid_strategy,insights.time_range(${timeRangeParam}){${insightFields}}`,
+      effective_status: JSON.stringify(["ACTIVE"]), limit: 200,
+    }),
+    graphGet(`/${accountId}/adsets`, {
+      fields: `id,name,campaign_id,optimization_goal,start_time,daily_budget,effective_status,targeting,insights.time_range(${timeRangeParam}){${insightFields}}`,
+      effective_status: JSON.stringify(["ACTIVE"]), limit: 200,
+    }),
+    graphGet(`/${accountId}/ads`, {
+      fields: `id,name,adset_id,campaign_id,effective_status,creative{id,name},insights.time_range(${timeRangeParam}){${insightFields}}`,
+      effective_status: JSON.stringify(["ACTIVE"]), limit: 200,
+    }),
+  ]);
+
+  const campaignNameById = new Map((campaignsRes.data || []).map(c => [c.id, c.name]));
+  const adsetNameById = new Map((adsetsRes.data || []).map(a => [a.id, a.name]));
+
+  const campaigns = (campaignsRes.data || []).map(c => ({
+    id: c.id, name: c.name, objective: c.objective || null,
+    dailyBudget: c.daily_budget ? toNum(c.daily_budget) / 100 : null,
+    metrics: normalizeMetrics(c.insights?.data?.[0]),
+  }));
+
+  const adSets = (adsetsRes.data || []).map(a => {
+    const metrics = normalizeMetrics(a.insights?.data?.[0]);
+    const estimatedAudience = a.targeting?.audience_size_lower_bound ?? null;
+    let daysActive = null;
+    if (a.start_time) daysActive = Math.floor((Date.now() - new Date(a.start_time).getTime()) / 86400000);
+    return {
+      id: a.id, name: a.name, campaignId: a.campaign_id, campaignName: campaignNameById.get(a.campaign_id) || "Não disponível",
+      dailyBudget: a.daily_budget ? toNum(a.daily_budget) / 100 : null,
+      estimatedAudience, daysActive, metrics,
+      saturationFlag: (metrics.frequency || 0) > BENCHMARK.alertFrequency,
+      audienceTooSmallFlag: estimatedAudience !== null ? estimatedAudience < BENCHMARK.minAudience : false,
+      reviewCandidateFlag: (daysActive || 0) > 90 && (metrics.frequency || 0) > BENCHMARK.alertFrequency,
+    };
+  });
+
+  const ads = (adsRes.data || []).map(a => ({
+    id: a.id, name: a.name, adSetId: a.adset_id,
+    adSetName: adsetNameById.get(a.adset_id) || "Não disponível",
+    campaignId: a.campaign_id, campaignName: campaignNameById.get(a.campaign_id) || "Não disponível",
+    metrics: normalizeMetrics(a.insights?.data?.[0]),
+  }));
+
+  return { campaigns, adSets, ads, since, until };
+}
+
+// ---------- Diagnostics (client-side) ----------
+
+function classifyRange(value, min, max, lowerIsBetter) {
+  if (value === null) return "unknown";
+  if (lowerIsBetter) {
+    if (value <= max) return "green";
+    if (value <= max * 1.3) return "amber";
+    return "red";
+  }
+  if (value >= min) return "green";
+  if (value >= min * 0.7) return "amber";
+  return "red";
+}
+
+function campaignHealth(c) {
+  const cpmS = classifyRange(c.metrics.cpm, BENCHMARK.cpm.min, BENCHMARK.cpm.max, true);
+  const ctrS = classifyRange(c.metrics.ctr, BENCHMARK.ctr.min, BENCHMARK.ctr.max, false);
+  const statuses = [cpmS, ctrS].filter(s => s !== "unknown");
+  if (statuses.length === 0) return "unknown";
+  if (statuses.includes("red")) return "red";
+  if (statuses.includes("amber")) return "amber";
+  return "green";
+}
+
+function adSetHealth(a) {
+  if (a.saturationFlag || a.audienceTooSmallFlag) return "red";
+  const cpmS = classifyRange(a.metrics.cpm, BENCHMARK.cpm.min, BENCHMARK.cpm.max, true);
+  return cpmS;
+}
+
+function generateAlerts(campaigns, adSets, ads) {
+  const alerts = [];
+  adSets.forEach(a => {
+    if (a.saturationFlag) {
+      alerts.push({ level: "critico", problem: `O ad set "${a.name}" está com frequência ${a.metrics.frequency?.toFixed(2)}, acima do limite saudável de ${BENCHMARK.alertFrequency}.`,
+        cause: "A audiência está sendo exposta ao mesmo criativo repetidamente — o público disponível já foi esgotado para o orçamento atual.",
+        impact: "Isso pressiona o CPM para cima e reduz a eficiência do investimento.",
+        recommendation: "Testar novos criativos e/ou ampliar a audiência." });
+    }
+    if (a.audienceTooSmallFlag) {
+      alerts.push({ level: "critico", problem: `O ad set "${a.name}" tem audiência estimada de ${a.estimatedAudience.toLocaleString("pt-BR")}, abaixo do mínimo de ${BENCHMARK.minAudience.toLocaleString("pt-BR")}.`,
+        cause: "A segmentação está restringindo demais o público disponível.",
+        impact: "Com pouca gente para alcançar, a saturação chega rápido e o custo por resultado tende a subir.",
+        recommendation: "Ampliar raio geográfico ou critérios de interesse." });
+    }
+    if (a.reviewCandidateFlag) {
+      alerts.push({ level: "importante", problem: `O ad set "${a.name}" está ativo há ${a.daysActive} dias e já apresenta frequência elevada.`,
+        cause: "Estruturas antigas sem renovação de criativo esgotam a audiência gradualmente sob o motor de entrega atual.",
+        impact: "Performance tende a degradar progressivamente se nada for renovado.",
+        recommendation: "Revisar: pausar, criar variações novas, ou consolidar a estrutura." });
+    }
+  });
+  campaigns.forEach(c => {
+    if (c.metrics.ctr !== null && c.metrics.ctr < BENCHMARK.ctr.min * 0.7) {
+      alerts.push({ level: "importante", problem: `A campanha "${c.name}" tem CTR de ${c.metrics.ctr.toFixed(2)}%, bem abaixo do benchmark de ${BENCHMARK.ctr.min}–${BENCHMARK.ctr.max}%.`,
+        cause: "O criativo pode não estar ressoando com a audiência ou o público está amplo demais.",
+        impact: "CTR baixo geralmente eleva o CPM e reduz o volume de resultados pelo mesmo orçamento.",
+        recommendation: "Testar novos ângulos de criativo e revisar a segmentação." });
+    }
+  });
+  if (ads.length > 0 && ads.length < 5) {
+    alerts.push({ level: "oportunidade", problem: `A conta está rodando apenas ${ads.length} criativo(s) ativo(s), abaixo da referência de 8–15.`,
+      cause: "Poucas variações limitam a capacidade do algoritmo de encontrar o ângulo que melhor converte.",
+      impact: "Maior chance de fadiga de criativo acelerada.",
+      recommendation: "Produzir 5–10 variações adicionais e testar em paralelo." });
+  }
+  if (alerts.length === 0 && campaigns.length > 0) {
+    alerts.push({ level: "oportunidade", problem: "Nenhum problema crítico identificado nos dados coletados.",
+      cause: "CPM, CTR e frequência estão dentro das faixas saudáveis.",
+      impact: "Conta operando de forma estável no período.",
+      recommendation: "Manter monitoramento periódico e testar incrementos de criativo." });
+  }
+  const order = { critico: 0, importante: 1, oportunidade: 2 };
+  return alerts.sort((a, b) => order[a.level] - order[b.level]);
+}
+
+function healthScore(campaigns, adSets, ads) {
+  const avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
+  const avgCtr = avg(campaigns.map(c => c.metrics.ctr));
+  const ctrScore = avgCtr === null ? 50 : Math.min(100, Math.max(0, (avgCtr / BENCHMARK.ctr.max) * 100));
+  const avgCpm = avg(campaigns.map(c => c.metrics.cpm));
+  const cpmScore = avgCpm === null ? 50 : Math.min(100, Math.max(0, (1 - avgCpm / (BENCHMARK.cpm.max * 1.5)) * 100));
+  const avgFreq = avg(adSets.map(a => a.metrics.frequency));
+  const freqScore = avgFreq === null ? 50 : Math.min(100, Math.max(0, (1 - avgFreq / (BENCHMARK.alertFrequency * 2)) * 100));
+  const creativeScore = ads.length === 0 ? 0 : Math.min(100, (Math.min(ads.length, 15) / 15) * 100);
+  const perCampaign = campaigns.length > 0 ? adSets.length / campaigns.length : 0;
+  const structureScore = perCampaign === 0 ? 50 : perCampaign <= 2 ? 100 : Math.max(0, 100 - (perCampaign - 2) * 15);
+  const score = Math.round(ctrScore*0.25 + cpmScore*0.25 + freqScore*0.2 + creativeScore*0.15 + structureScore*0.15);
+  return { score: Math.min(100, Math.max(0, score)), ctrScore: Math.round(ctrScore), cpmScore: Math.round(cpmScore), freqScore: Math.round(freqScore), creativeScore: Math.round(creativeScore), structureScore: Math.round(structureScore) };
+}
+
+function rankAds(ads) {
+  const withData = ads.filter(a => a.metrics.costPerResult !== null);
+  const withoutData = ads.filter(a => a.metrics.costPerResult === null);
+  const sorted = [...withData].sort((a, b) => {
+    const cost = (a.metrics.costPerResult ?? Infinity) - (b.metrics.costPerResult ?? Infinity);
+    if (cost !== 0) return cost;
+    return (b.metrics.ctr ?? 0) - (a.metrics.ctr ?? 0);
+  });
+  const ranked = sorted.map((ad, i) => {
+    const rank = i + 1;
+    const cls = rank <= Math.ceil(sorted.length * 0.3) ? "vencedor" : rank > Math.floor(sorted.length * 0.7) ? "perdedor" : "neutro";
+    return { ...ad, rank, cls };
+  });
+  return [...ranked, ...withoutData.map(a => ({ ...a, rank: null, cls: "unknown" }))];
+}
+
+// ---------- Formatting ----------
+
+function fmtCurrency(v) { return v === null || v === undefined ? "Não disponível" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
+function fmtNum(v, decimals = 0, suffix = "") { return v === null || v === undefined ? "Não disponível" : v.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix; }
+function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+function badgeHtml(status) {
+  const cfg = { green: ["Saudável", "green"], amber: ["Atenção", "amber"], red: ["Crítico", "red"], unknown: ["Sem dados", "slate"] }[status] || ["Sem dados", "slate"];
+  return `<span class="badge ${cfg[1]}"><span class="dot"></span>${cfg[0]}</span>`;
+}
+
+// ---------- Render ----------
+
+function render() {
+  renderHeader();
+  renderSidebar();
+  renderMain();
+}
+
+function renderHeader() {
+  const el = document.getElementById("header-controls");
+  if (!state.token) { el.innerHTML = ""; return; }
+  const opts = state.accounts.map(a => `<option value="${a.id}" ${a.id === state.accountId ? "selected" : ""}>${esc(a.name || a.id)}</option>`).join("");
+  el.innerHTML = `<select id="account-select" style="width:220px">${opts || '<option value="">Nenhuma conta</option>'}</select>`;
+  const sel = document.getElementById("account-select");
+  if (sel) sel.onchange = (e) => { state.accountId = e.target.value; localStorage.setItem("meta_perf_account", state.accountId); loadAccountData(); };
+}
+
+function renderSidebar() {
+  const el = document.getElementById("sidebar");
+  if (!state.token) { el.innerHTML = ""; return; }
+  el.innerHTML = NAV_ITEMS.map(item =>
+    `<a class="${state.currentPage === item.id ? "active" : ""}" data-page="${item.id}">${item.label}</a>`
+  ).join("");
+  el.querySelectorAll("a").forEach(a => a.onclick = () => { state.currentPage = a.dataset.page; render(); });
+}
+
+function renderMain() {
+  const el = document.getElementById("main");
+
+  if (!state.token) {
+    el.innerHTML = `
+      <div class="setup-card">
+        <h2>Conectar Meta Performance</h2>
+        <p>Cole seu access token da Meta Graph API (gerado no Graph API Explorer, com permissão ads_read). Ele fica salvo só no seu navegador — nunca é enviado a nenhum servidor além da própria Meta.</p>
+        <div class="field"><label>Access token</label><input id="token-input" type="password" placeholder="EAA..." /></div>
+        <button class="primary" id="connect-btn">Conectar</button>
+        <p class="hint">Gere em developers.facebook.com/tools/explorer</p>
+      </div>`;
+    document.getElementById("connect-btn").onclick = async () => {
+      const val = document.getElementById("token-input").value.trim();
+      if (!val) return;
+      state.token = val;
+      localStorage.setItem("meta_perf_token", val);
+      await bootstrapAccounts();
+    };
+    return;
+  }
+
+  if (state.loading) { el.innerHTML = `<div class="loading">Carregando dados da conta…</div>`; return; }
+
+  if (state.error) {
+    el.innerHTML = `<div class="empty-state"><h3>Erro ao consultar a Meta Marketing API</h3><p>${esc(state.error)}</p><button class="secondary" style="margin-top:16px" id="retry-btn">Tentar de novo</button></div>`;
+    document.getElementById("retry-btn").onclick = () => loadAccountData();
+    return;
+  }
+
+  if (!state.accountId) {
+    el.innerHTML = `<div class="empty-state"><h3>Nenhuma conta selecionada</h3><p>Selecione uma conta no seletor no topo da página.</p></div>`;
+    return;
+  }
+
+  const pages = {
+    overview: renderOverview, campanhas: renderCampanhas, adsets: renderAdSets,
+    criativos: renderCriativos, benchmark: renderBenchmark, alertas: renderAlertas,
+    andromeda: renderAndromeda, plano: renderPlano,
+  };
+  el.innerHTML = (pages[state.currentPage] || renderOverview)();
+}
+
+function renderOverview() {
+  const { campaigns, adSets, ads } = state;
+  const sum = arr => arr.some(v => v !== null) ? arr.reduce((a, v) => a + (v || 0), 0) : null;
+  const avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
+  const totalSpend = sum(campaigns.map(c => c.metrics.spend));
+  const totalResults = sum(campaigns.map(c => c.metrics.results));
+  const dailyBudget = sum(campaigns.map(c => c.dailyBudget));
+  const reach = sum(campaigns.map(c => c.metrics.reach));
+  const cpm = avg(campaigns.map(c => c.metrics.cpm));
+  const ctr = avg(campaigns.map(c => c.metrics.ctr));
+  const cpc = avg(campaigns.map(c => c.metrics.cpc));
+  const frequency = avg(adSets.map(a => a.metrics.frequency));
+  const cpr = totalSpend !== null && totalResults ? totalSpend / totalResults : null;
+  const hs = healthScore(campaigns, adSets, ads);
+
+  return `
+    <h1>Overview</h1>
+    <p class="subtitle">${campaigns.length} campanha(s) ativa(s) &middot; últimos 30 dias</p>
+    <div class="health-card">
+      <div><div class="metric-card" style="border:none;padding:0"><div class="label">Health Score da conta</div><div class="health-score">${hs.score}<span>/100</span></div></div></div>
+      <div class="health-breakdown">
+        <div><b>${hs.ctrScore}</b>CTR</div><div><b>${hs.cpmScore}</b>CPM</div><div><b>${hs.freqScore}</b>Frequência</div>
+        <div><b>${hs.creativeScore}</b>Criativos</div><div><b>${hs.structureScore}</b>Estrutura</div>
+      </div>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="label">Investimento total</div><div class="value">${fmtCurrency(totalSpend)}</div></div>
+      <div class="metric-card"><div class="label">Orçamento diário</div><div class="value">${fmtCurrency(dailyBudget)}</div></div>
+      <div class="metric-card"><div class="label">Resultados</div><div class="value">${fmtNum(totalResults)}</div></div>
+      <div class="metric-card"><div class="label">Custo por resultado</div><div class="value">${fmtCurrency(cpr)}</div></div>
+      <div class="metric-card"><div class="label">CPM</div><div class="value">${fmtCurrency(cpm)}</div></div>
+      <div class="metric-card"><div class="label">CTR</div><div class="value">${fmtNum(ctr, 2, "%")}</div></div>
+      <div class="metric-card"><div class="label">CPC</div><div class="value">${fmtCurrency(cpc)}</div></div>
+      <div class="metric-card"><div class="label">Alcance</div><div class="value">${fmtNum(reach)}</div></div>
+      <div class="metric-card"><div class="label">Frequência</div><div class="value">${fmtNum(frequency, 2)}</div></div>
+    </div>`;
+}
+
+function renderCampanhas() {
+  const { campaigns } = state;
+  if (campaigns.length === 0) return `<h1>Campanhas</h1><div class="empty-state"><h3>Nenhuma campanha ativa</h3><p>Não há campanhas com effective_status = ACTIVE nesta conta.</p></div>`;
+  const rows = campaigns.map(c => `
+    <tr>
+      <td style="font-weight:500">${esc(c.name)}</td>
+      <td>${esc(c.objective) || "Não disponível"}</td>
+      <td>${fmtCurrency(c.metrics.spend)}</td>
+      <td>${fmtNum(c.metrics.results)}</td>
+      <td>${fmtCurrency(c.metrics.costPerResult)}</td>
+      <td>${fmtCurrency(c.metrics.cpm)}</td>
+      <td>${fmtNum(c.metrics.ctr, 2, "%")}</td>
+      <td>${fmtCurrency(c.dailyBudget)}</td>
+      <td>${badgeHtml(campaignHealth(c))}</td>
+    </tr>`).join("");
+  return `<h1>Campanhas</h1><p class="subtitle">${campaigns.length} campanha(s) ativa(s)</p>
+    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderAdSets() {
+  const { adSets } = state;
+  if (adSets.length === 0) return `<h1>Ad Sets</h1><div class="empty-state"><h3>Nenhum ad set ativo</h3><p>Não há ad sets com effective_status = ACTIVE nesta conta.</p></div>`;
+  const rows = adSets.map(a => `
+    <tr>
+      <td style="font-weight:500">${esc(a.name)}
+        <div>${a.saturationFlag ? '<span class="flag red">Saturado</span>' : ""}${a.audienceTooSmallFlag ? '<span class="flag red">Audiência pequena</span>' : ""}${a.reviewCandidateFlag ? '<span class="flag amber">Revisão</span>' : ""}</div>
+      </td>
+      <td>${esc(a.campaignName)}</td>
+      <td>${fmtCurrency(a.metrics.spend)}</td>
+      <td>${fmtNum(a.metrics.results)}</td>
+      <td>${fmtCurrency(a.metrics.costPerResult)}</td>
+      <td>${fmtNum(a.metrics.frequency, 2)}</td>
+      <td>${a.estimatedAudience !== null ? fmtNum(a.estimatedAudience) : "Não disponível"}</td>
+      <td>${a.daysActive ?? "Não disponível"}</td>
+      <td>${badgeHtml(adSetHealth(a))}</td>
+    </tr>`).join("");
+  return `<h1>Ad Sets</h1><p class="subtitle">${adSets.length} ad set(s) ativo(s)</p>
+    <div class="table-wrap"><table><thead><tr><th>Ad set</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderCriativos() {
+  const ranked = rankAds(state.ads);
+  if (ranked.length === 0) return `<h1>Ranking de criativos</h1><div class="empty-state"><h3>Nenhum anúncio ativo</h3><p>Não há anúncios com effective_status = ACTIVE nesta conta.</p></div>`;
+  const clsLabel = { vencedor: ["Vencedor", "green"], neutro: ["Neutro", "slate"], perdedor: ["Perdedor", "red"], unknown: ["Sem dados", "slate"] };
+  const rows = ranked.map(a => { const [label, color] = clsLabel[a.cls]; return `
+    <tr>
+      <td>${a.rank ?? "–"}</td>
+      <td style="font-weight:500">${esc(a.name)}</td>
+      <td>${esc(a.campaignName)}</td>
+      <td>${fmtCurrency(a.metrics.spend)}</td>
+      <td>${fmtNum(a.metrics.results)}</td>
+      <td>${fmtCurrency(a.metrics.costPerResult)}</td>
+      <td>${fmtNum(a.metrics.ctr, 2, "%")}</td>
+      <td><span class="badge ${color}"><span class="dot"></span>${label}</span></td>
+    </tr>`; }).join("");
+  return `<h1>Ranking de criativos</h1><p class="subtitle">Ordenado por custo por resultado e CTR</p>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CTR</th><th>Classificação</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderBenchmark() {
+  const { campaigns, adSets } = state;
+  const avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
+  const cpm = avg(campaigns.map(c => c.metrics.cpm));
+  const ctr = avg(campaigns.map(c => c.metrics.ctr));
+  const sumSpend = campaigns.reduce((s, c) => s + (c.metrics.spend || 0), 0);
+  const sumResults = campaigns.reduce((s, c) => s + (c.metrics.results || 0), 0);
+  const cpr = sumResults > 0 ? sumSpend / sumResults : null;
+
+  const comps = [
+    { label: "CPM", value: cpm, min: BENCHMARK.cpm.min, max: BENCHMARK.cpm.max, lowerBetter: true, isPct: false },
+    { label: "CTR", value: ctr, min: BENCHMARK.ctr.min, max: BENCHMARK.ctr.max, lowerBetter: false, isPct: true },
+    { label: "Custo por resultado", value: cpr, min: BENCHMARK.cpl.min, max: BENCHMARK.cpl.max, lowerBetter: true, isPct: false },
+  ];
+
+  const cards = comps.map(c => {
+    const status = classifyRange(c.value, c.min, c.max, c.lowerBetter);
+    const cfg = { green: ["Melhor que o mercado", "green"], amber: ["Próximo do limite", "amber"], red: ["Fora do benchmark", "red"], unknown: ["Benchmark não encontrado", "slate"] }[status];
+    const diff = c.value !== null ? (((c.value - (c.lowerBetter ? c.max : c.min)) / (c.lowerBetter ? c.max : c.min)) * 100) : null;
+    const interpretation = c.value === null ? "Dado não disponível na resposta da API." :
+      status === "green" ? "Dentro ou melhor que a faixa de benchmark de mercado." :
+      status === "red" ? "Fora do benchmark — isso pode estar pressionando o custo final por resultado." :
+      "Próximo do limite — vale monitorar nos próximos dias.";
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <b style="font-size:13px">${c.label}</b><span class="badge ${cfg[1]}"><span class="dot"></span>${cfg[0]}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font-size:13px;margin-bottom:10px">
+        <div><div style="font-size:11px;color:var(--text-muted)">Sua conta</div><b>${c.isPct ? fmtNum(c.value,2,"%") : fmtCurrency(c.value)}</b></div>
+        <div><div style="font-size:11px;color:var(--text-muted)">Benchmark</div><b>${c.isPct ? `${c.min}–${c.max}%` : `${fmtCurrency(c.min)} – ${fmtCurrency(c.max)}`}</b></div>
+        <div><div style="font-size:11px;color:var(--text-muted)">Diferença</div><b>${diff !== null ? `${diff > 0 ? "+" : ""}${diff.toFixed(0)}%` : "Não disponível"}</b></div>
+      </div>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0">${interpretation}</p>
+    </div>`;
+  }).join("");
+
+  return `<h1>Benchmark — Cliente × Mercado</h1><p class="subtitle">Referência Brasil, 2026</p>${cards}`;
+}
+
+function renderAlertas() {
+  const alerts = generateAlerts(state.campaigns, state.adSets, state.ads);
+  const groups = { critico: [], importante: [], oportunidade: [] };
+  alerts.forEach(a => groups[a.level].push(a));
+  const labels = { critico: "Crítico", importante: "Importante", oportunidade: "Oportunidade" };
+  const icons = { critico: "\u{1F534}", importante: "\u{1F7E1}", oportunidade: "\u{1F7E2}" };
+
+  const sections = Object.keys(groups).map(level => {
+    const items = groups[level].map(a => `
+      <div class="alert-card ${level}">
+        <span class="level">${icons[level]} ${labels[level]}</span>
+        <p class="problem">${esc(a.problem)}</p>
+        <dl>
+          <div><b>Causa:</b> ${esc(a.cause)}</div>
+          <div><b>Impacto:</b> ${esc(a.impact)}</div>
+          <div><b>Recomendação:</b> ${esc(a.recommendation)}</div>
+        </dl>
+      </div>`).join("");
+    return `<div class="section"><h2>${labels[level]} (${groups[level].length})</h2>${items || '<p style="font-size:13px;color:var(--text-muted)">Nenhum alerta neste nível.</p>'}</div>`;
+  }).join("");
+
+  return `<h1>Central de alertas</h1><p class="subtitle">${alerts.length} alerta(s) identificado(s)</p>${sections}`;
+}
+
+function renderAndromeda() {
+  const { campaigns, adSets, ads } = state;
+  const perCampaign = campaigns.length > 0 ? (adSets.length / campaigns.length).toFixed(1) : "0";
+  const perAdSet = adSets.length > 0 ? (ads.length / adSets.length).toFixed(1) : "0";
+  const saturated = adSets.filter(a => a.saturationFlag).length;
+  const recs = [];
+  if (Number(perCampaign) > 2) recs.push(`Consolidar ad sets: a conta tem ${perCampaign} ad sets por campanha, acima da referência de 1–2.`);
+  if (ads.length < 8) recs.push(`Aumentar diversidade de criativos: apenas ${ads.length} anúncio(s) ativo(s), abaixo da referência de 8–15.`);
+  if (saturated > 0) recs.push(`Resolver saturação: ${saturated} ad set(s) com frequência acima do limite saudável.`);
+  if (recs.length === 0) recs.push("Estrutura já está alinhada com a referência pós-Andromeda (1 campanha → 1–2 ad sets → 8–15 criativos diversos).");
+
+  return `<h1>Diagnóstico Andromeda</h1><p class="subtitle">Avaliação estrutural frente ao motor de entrega atual</p>
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="label">Campanhas ativas</div><div class="value">${campaigns.length}</div></div>
+      <div class="metric-card"><div class="label">Ad sets ativos</div><div class="value">${adSets.length}</div></div>
+      <div class="metric-card"><div class="label">Criativos ativos</div><div class="value">${ads.length}</div></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px">
+      <b style="font-size:13px">Referência estrutural</b>
+      <p style="font-size:13px;color:var(--text-secondary)">1 campanha → 1–2 ad sets → 8–15 criativos diversos (referência, não regra absoluta).</p>
+      <p style="font-size:13px"><b>Concentração de orçamento:</b> ${perCampaign} ad sets por campanha em média.</p>
+      <p style="font-size:13px"><b>Diversidade de criativos:</b> ${perAdSet} criativos por ad set em média.</p>
+      <p style="font-size:13px"><b>Sinais de saturação:</b> ${saturated} de ${adSets.length} ad set(s) com frequência elevada.</p>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px">
+      <b style="font-size:13px">Adaptações recomendadas</b>
+      <ul style="font-size:13px;color:var(--text-secondary);padding-left:18px">${recs.map(r => `<li style="margin-bottom:6px">${esc(r)}</li>`).join("")}</ul>
+    </div>`;
+}
+
+function renderPlano() {
+  const alerts = generateAlerts(state.campaigns, state.adSets, state.ads);
+  const items = alerts.map((a, i) => ({ ...a, order: i + 1 }));
+  const icons = { critico: "\u{1F534}", importante: "\u{1F7E1}", oportunidade: "\u{1F7E2}" };
+  const labels = { critico: "Crítico", importante: "Importante", oportunidade: "Oportunidade" };
+
+  const cards = items.map(item => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--text-muted);font-family:monospace">${String(item.order).padStart(2,"0")}</span>
+        <span>${icons[item.level]}</span>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase">${labels[item.level]}</span>
+      </div>
+      <p style="font-weight:600;font-size:13px;margin:6px 0">${esc(item.problem)}</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:4px 0"><b style="color:var(--text)">Causa:</b> ${esc(item.cause)}</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:4px 0"><b style="color:var(--text)">Impacto:</b> ${esc(item.impact)}</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:4px 0"><b style="color:var(--text)">Ação recomendada:</b> ${esc(item.recommendation)}</p>
+    </div>`).join("");
+
+  return `<h1>Plano de ação</h1><p class="subtitle">${items.length} ação(ões) priorizada(s)</p>${cards}`;
+}
+
+// ---------- Bootstrap ----------
+
+async function bootstrapAccounts() {
+  state.loading = true; state.error = null; render();
+  try {
+    state.accounts = await fetchAccounts();
+    state.loading = false;
+    if (state.accountId) { await loadAccountData(); }
+    else { render(); }
+  } catch (err) {
+    state.loading = false; state.error = err.message; render();
+  }
+}
+
+async function loadAccountData() {
+  if (!state.accountId) { render(); return; }
+  state.loading = true; state.error = null; render();
+  try {
+    const bundle = await fetchBundle(state.accountId);
+    state.campaigns = bundle.campaigns; state.adSets = bundle.adSets; state.ads = bundle.ads;
+    state.loading = false; render();
+  } catch (err) {
+    state.loading = false; state.error = err.message; render();
+  }
+}
+
+(async function init() {
+  if (state.token) { await bootstrapAccounts(); }
+  else { render(); }
+})();
+</script>
+</body>
+</html>
