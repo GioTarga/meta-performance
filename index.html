@@ -9,10 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #05080f;
-    --bg-grid: #070c16;
-    --surface: #0a1120;
-    --surface-2: #0d1626;
+    --bg: #080c14;
+    --surface: #0c1220;
+    --surface-2: #101828;
     --border: #16324a;
     --border-bright: #1f6f8f;
     --text: #d8f3ff;
@@ -32,11 +31,7 @@
   body {
     margin: 0;
     font-family: var(--font-mono);
-    background:
-      linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0 / 100% 28px,
-      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px) 0 0 / 28px 100%,
-      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(34,229,255,0.08), transparent 60%),
-      var(--bg);
+    background: var(--bg);
     color: var(--text);
     min-height: 100vh;
   }
@@ -73,10 +68,10 @@
     border-left: 2px solid transparent;
   }
   nav.sidebar a.active {
-    background: rgba(34,229,255,0.08); color: var(--cyan);
+    background: rgba(34,229,255,0.07); color: var(--cyan);
     border-left: 2px solid var(--cyan);
   }
-  nav.sidebar a:hover:not(.active) { background: rgba(255,255,255,0.03); color: var(--text); }
+  nav.sidebar a:hover:not(.active) { background: rgba(255,255,255,0.02); color: var(--text); }
   main { flex: 1; padding: 32px; max-width: 1240px; }
   .page { display: none; }
   .page.active { display: block; }
@@ -88,16 +83,9 @@
   .subtitle { font-size: 12px; color: var(--text-secondary); margin: 0 0 24px; letter-spacing: 0.02em; }
 
   .setup-card {
-    background: var(--surface); border: 1px solid var(--border-bright); border-radius: 4px;
-    padding: 28px; max-width: 480px; margin: 60px auto;
-    box-shadow: 0 0 40px rgba(34,229,255,0.06), inset 0 0 40px rgba(34,229,255,0.02);
-    position: relative;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 32px; max-width: 460px; margin: 80px auto;
   }
-  .setup-card::before, .setup-card::after {
-    content: ""; position: absolute; width: 16px; height: 16px; border: 2px solid var(--cyan);
-  }
-  .setup-card::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
-  .setup-card::after { bottom: -1px; right: -1px; border-left: none; border-top: none; }
   .setup-card h2 { font-family: var(--font-display); font-size: 16px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
   .setup-card p { font-size: 12px; color: var(--text-secondary); margin: 0 0 18px; line-height: 1.6; }
   .field { margin-bottom: 16px; }
@@ -128,12 +116,7 @@
 
   .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
   .metric-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px;
-    position: relative;
-  }
-  .metric-card::before {
-    content: ""; position: absolute; top: 0; left: 0; width: 10px; height: 10px;
-    border-top: 1px solid var(--cyan-dim); border-left: 1px solid var(--cyan-dim);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px;
   }
   .metric-card .label {
     font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;
@@ -146,9 +129,8 @@
   .metric-card .sub { font-size: 10px; color: var(--text-muted); margin-top: 6px; }
 
   .health-card {
-    background: var(--surface); border: 1px solid var(--border-bright); border-radius: 4px; padding: 22px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px;
     margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
-    box-shadow: 0 0 30px rgba(34,229,255,0.05);
   }
   .health-score {
     font-family: var(--font-display); font-size: 42px; font-weight: 700; color: var(--cyan);
@@ -158,19 +140,19 @@
   .health-breakdown { display: flex; gap: 22px; text-align: center; font-size: 9px; color: var(--text-secondary); letter-spacing: 0.06em; text-transform: uppercase; }
   .health-breakdown b { display: block; font-size: 16px; color: var(--text); font-family: var(--font-display); margin-bottom: 2px; }
 
-  table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   thead th {
-    text-align: left; padding: 11px 12px; font-size: 10px; font-weight: 600; color: var(--cyan-dim);
+    text-align: left; padding: 11px 14px; font-size: 10px; font-weight: 600; color: var(--cyan-dim);
     background: var(--surface-2); border-bottom: 1px solid var(--border); white-space: nowrap;
     letter-spacing: 0.06em; text-transform: uppercase;
   }
-  tbody td { padding: 11px 12px; border-bottom: 1px solid rgba(22,50,74,0.5); white-space: nowrap; color: var(--text); }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid rgba(22,50,74,0.4); white-space: nowrap; color: var(--text); }
   tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover { background: rgba(34,229,255,0.04); }
-  .table-wrap { overflow-x: auto; border-radius: 4px; position: relative; transition: box-shadow 0.15s; }
-  .table-wrap.scroll-right { box-shadow: inset -24px 0 16px -20px rgba(34,229,255,0.15); }
-  .table-wrap.scroll-left { box-shadow: inset 24px 0 16px -20px rgba(34,229,255,0.15); }
-  .table-wrap.scroll-right.scroll-left { box-shadow: inset -24px 0 16px -20px rgba(34,229,255,0.15), inset 24px 0 16px -20px rgba(34,229,255,0.15); }
+  tbody tr:hover { background: rgba(34,229,255,0.03); }
+  .table-wrap { overflow-x: auto; border-radius: 8px; position: relative; transition: box-shadow 0.15s; }
+  .table-wrap.scroll-right { box-shadow: inset -24px 0 16px -20px rgba(34,229,255,0.12); }
+  .table-wrap.scroll-left { box-shadow: inset 24px 0 16px -20px rgba(34,229,255,0.12); }
+  .table-wrap.scroll-right.scroll-left { box-shadow: inset -24px 0 16px -20px rgba(34,229,255,0.12), inset 24px 0 16px -20px rgba(34,229,255,0.12); }
   .scroll-nudge { font-size: 10px; color: var(--text-muted); margin: 8px 2px 0; display: none; letter-spacing: 0.03em; }
   .table-wrap.scroll-right ~ .scroll-nudge { display: block; }
 
@@ -188,7 +170,7 @@
   .badge.red .dot { background: var(--red-dot); box-shadow: 0 0 6px var(--red-dot); }
   .badge.slate .dot { background: var(--slate-dot); }
 
-  .alert-card { border-radius: 4px; padding: 16px; border-left: 3px solid; margin-bottom: 10px; background: var(--surface); border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .alert-card { border-radius: 8px; padding: 18px; border-left: 3px solid; margin-bottom: 10px; background: var(--surface); border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .alert-card.critico { border-left-color: var(--red-text); box-shadow: -3px 0 16px -6px rgba(255,59,92,0.3); }
   .alert-card.importante { border-left-color: var(--amber-text); box-shadow: -3px 0 16px -6px rgba(255,183,3,0.25); }
   .alert-card.oportunidade { border-left-color: var(--green-text); box-shadow: -3px 0 16px -6px rgba(16,255,163,0.25); }
@@ -201,7 +183,7 @@
   .alert-card dl div { margin-bottom: 4px; color: var(--text-secondary); line-height: 1.5; }
   .alert-card dl b { color: var(--cyan-dim); font-weight: 600; }
 
-  .empty-state { text-align: center; padding: 70px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+  .empty-state { text-align: center; padding: 70px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
   .empty-state h3 { font-family: var(--font-display); font-size: 15px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text); }
   .empty-state p { font-size: 12px; color: var(--text-secondary); max-width: 380px; margin: 0 auto; line-height: 1.6; }
 
