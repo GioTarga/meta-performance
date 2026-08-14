@@ -294,6 +294,7 @@ let state = {
   token: localStorage.getItem("meta_perf_token") || "",
   accountId: localStorage.getItem("meta_perf_account") || "",
   period: computePeriod("30"),
+  statusScope: localStorage.getItem("meta_perf_status_scope") || "active",
   accounts: [],
   campaigns: [],
   adSets: [],
@@ -361,19 +362,22 @@ async function fetchBundle(accountId) {
   const { since, until } = dateRange();
   const insightFields = "spend,impressions,reach,cpm,ctr,cpc,frequency,actions,cost_per_action_type";
   const timeRangeParam = `{'since':'${since}','until':'${until}'}`;
+  const statusFilter = state.statusScope === "all"
+    ? undefined
+    : JSON.stringify(["ACTIVE"]);
 
   const [campaignsRes, adsetsRes, adsRes] = await Promise.all([
     graphGet(`/${accountId}/campaigns`, {
       fields: `id,name,objective,effective_status,daily_budget,bid_strategy,insights.time_range(${timeRangeParam}){${insightFields}}`,
-      effective_status: JSON.stringify(["ACTIVE"]), limit: 200,
+      effective_status: statusFilter, limit: 200,
     }),
     graphGet(`/${accountId}/adsets`, {
       fields: `id,name,campaign_id,optimization_goal,start_time,daily_budget,effective_status,targeting,insights.time_range(${timeRangeParam}){${insightFields}}`,
-      effective_status: JSON.stringify(["ACTIVE"]), limit: 200,
+      effective_status: statusFilter, limit: 200,
     }),
     graphGet(`/${accountId}/ads`, {
       fields: `id,name,adset_id,campaign_id,effective_status,creative{id,name},insights.time_range(${timeRangeParam}){${insightFields}}`,
-      effective_status: JSON.stringify(["ACTIVE"]), limit: 200,
+      effective_status: statusFilter, limit: 200,
     }),
   ]);
 
@@ -382,6 +386,7 @@ async function fetchBundle(accountId) {
 
   const campaigns = (campaignsRes.data || []).map(c => ({
     id: c.id, name: c.name, objective: c.objective || null,
+    effectiveStatus: c.effective_status || null,
     dailyBudget: c.daily_budget ? toNum(c.daily_budget) / 100 : null,
     metrics: normalizeMetrics(c.insights?.data?.[0]),
   }));
@@ -393,6 +398,7 @@ async function fetchBundle(accountId) {
     if (a.start_time) daysActive = Math.floor((Date.now() - new Date(a.start_time).getTime()) / 86400000);
     return {
       id: a.id, name: a.name, campaignId: a.campaign_id, campaignName: campaignNameById.get(a.campaign_id) || "Não disponível",
+      effectiveStatus: a.effective_status || null,
       dailyBudget: a.daily_budget ? toNum(a.daily_budget) / 100 : null,
       estimatedAudience, daysActive, metrics,
       saturationFlag: (metrics.frequency || 0) > BENCHMARK.alertFrequency,
@@ -405,6 +411,7 @@ async function fetchBundle(accountId) {
     id: a.id, name: a.name, adSetId: a.adset_id,
     adSetName: adsetNameById.get(a.adset_id) || "Não disponível",
     campaignId: a.campaign_id, campaignName: campaignNameById.get(a.campaign_id) || "Não disponível",
+    effectiveStatus: a.effective_status || null,
     metrics: normalizeMetrics(a.insights?.data?.[0]),
   }));
 
@@ -613,6 +620,20 @@ function badgeHtml(status) {
   return `<span class="badge ${cfg[1]}"><span class="dot"></span>${cfg[0]}</span>`;
 }
 
+const EFFECTIVE_STATUS_LABELS = {
+  ACTIVE: ["Ativa", "green"], PAUSED: ["Pausada", "slate"], CAMPAIGN_PAUSED: ["Pausada (campanha)", "slate"],
+  ADSET_PAUSED: ["Pausada (ad set)", "slate"], ARCHIVED: ["Arquivada", "slate"], DELETED: ["Excluída", "slate"],
+  PENDING_REVIEW: ["Em revisão", "amber"], DISAPPROVED: ["Reprovada", "red"], PREAPPROVED: ["Pré-aprovada", "amber"],
+  PENDING_BILLING_INFO: ["Pendente de pagamento", "amber"], IN_PROCESS: ["Em processamento", "amber"],
+  WITH_ISSUES: ["Com problemas", "red"],
+};
+
+function statusBadgeHtml(effectiveStatus) {
+  if (!effectiveStatus) return `<span class="badge slate"><span class="dot"></span>Não disponível</span>`;
+  const cfg = EFFECTIVE_STATUS_LABELS[effectiveStatus] || [effectiveStatus, "slate"];
+  return `<span class="badge ${cfg[1]}"><span class="dot"></span>${cfg[0]}</span>`;
+}
+
 // ---------- Render ----------
 
 function render() {
@@ -641,10 +662,21 @@ function renderHeader() {
 
   el.innerHTML = `
     <div class="header-controls">
+      <select id="status-scope-select" class="period-select" style="min-width:170px">
+        <option value="active" ${state.statusScope === "active" ? "selected" : ""}>Apenas ativas</option>
+        <option value="all" ${state.statusScope === "all" ? "selected" : ""}>Todas (inclui pausadas)</option>
+      </select>
       <select id="period-select" class="period-select">${periodOpts}</select>
       ${customRange}
       <select id="account-select" style="width:220px">${opts || '<option value="">Nenhuma conta</option>'}</select>
     </div>`;
+
+  const statusSel = document.getElementById("status-scope-select");
+  if (statusSel) statusSel.onchange = (e) => {
+    state.statusScope = e.target.value;
+    localStorage.setItem("meta_perf_status_scope", state.statusScope);
+    loadAccountData();
+  };
 
   const sel = document.getElementById("account-select");
   if (sel) sel.onchange = (e) => { state.accountId = e.target.value; localStorage.setItem("meta_perf_account", state.accountId); loadAccountData(); };
@@ -751,7 +783,7 @@ function renderOverview() {
 
   return `
     <h1>Overview</h1>
-    <p class="subtitle">${campaigns.length} campanha(s) ativa(s) &middot; ${state.period.since} a ${state.period.until}</p>
+    <p class="subtitle">${campaigns.length} campanha(s) &middot; ${state.statusScope === "all" ? "todos os status" : "apenas ativas"} &middot; ${state.period.since} a ${state.period.until}</p>
     <div class="health-card">
       <div><div class="metric-card" style="border:none;padding:0"><div class="label">Health Score da conta</div><div class="health-score">${hs.score}<span>/100</span></div></div></div>
       <div class="health-breakdown">
@@ -778,10 +810,12 @@ function renderOverview() {
 
 function renderCampanhas() {
   const { campaigns } = state;
-  if (campaigns.length === 0) return `<h1>Campanhas</h1><div class="empty-state"><h3>Nenhuma campanha ativa</h3><p>Não há campanhas com effective_status = ACTIVE nesta conta.</p></div>`;
+  const scopeLabel = state.statusScope === "all" ? "todas as campanhas (incluindo pausadas)" : "campanhas ativas";
+  if (campaigns.length === 0) return `<h1>Campanhas</h1><div class="empty-state"><h3>Nenhuma campanha encontrada</h3><p>Não há campanhas para o escopo "${scopeLabel}" nesta conta e período.</p></div>`;
   const rows = campaigns.map(c => `
     <tr>
       <td style="font-weight:500">${esc(c.name)}</td>
+      <td>${statusBadgeHtml(c.effectiveStatus)}</td>
       <td>${esc(c.objective) || "Não disponível"}</td>
       <td>${fmtCurrency(c.metrics.spend)}</td>
       <td>${fmtNum(c.metrics.results)}</td>
@@ -791,18 +825,20 @@ function renderCampanhas() {
       <td>${fmtCurrency(c.dailyBudget)}</td>
       <td>${badgeHtml(campaignHealth(c))}</td>
     </tr>`).join("");
-  return `<h1>Campanhas</h1><p class="subtitle">${campaigns.length} campanha(s) ativa(s)</p>
-    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
+  return `<h1>Campanhas</h1><p class="subtitle">${campaigns.length} campanha(s) &middot; escopo: ${scopeLabel}</p>
+    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
 }
 
 function renderAdSets() {
   const { adSets } = state;
-  if (adSets.length === 0) return `<h1>Ad Sets</h1><div class="empty-state"><h3>Nenhum ad set ativo</h3><p>Não há ad sets com effective_status = ACTIVE nesta conta.</p></div>`;
+  const scopeLabel = state.statusScope === "all" ? "todos os ad sets (incluindo pausados)" : "ad sets ativos";
+  if (adSets.length === 0) return `<h1>Ad Sets</h1><div class="empty-state"><h3>Nenhum ad set encontrado</h3><p>Não há ad sets para o escopo "${scopeLabel}" nesta conta e período.</p></div>`;
   const rows = adSets.map(a => `
     <tr>
       <td style="font-weight:500">${esc(a.name)}
         <div>${a.saturationFlag ? '<span class="flag red">Saturado</span>' : ""}${a.audienceTooSmallFlag ? '<span class="flag red">Audiência pequena</span>' : ""}${a.reviewCandidateFlag ? '<span class="flag amber">Revisão</span>' : ""}</div>
       </td>
+      <td>${statusBadgeHtml(a.effectiveStatus)}</td>
       <td>${esc(a.campaignName)}</td>
       <td>${fmtCurrency(a.metrics.spend)}</td>
       <td>${fmtNum(a.metrics.results)}</td>
@@ -812,18 +848,20 @@ function renderAdSets() {
       <td>${a.daysActive ?? "Não disponível"}</td>
       <td>${badgeHtml(adSetHealth(a))}</td>
     </tr>`).join("");
-  return `<h1>Ad Sets</h1><p class="subtitle">${adSets.length} ad set(s) ativo(s)</p>
-    <div class="table-wrap"><table><thead><tr><th>Ad set</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
+  return `<h1>Ad Sets</h1><p class="subtitle">${adSets.length} ad set(s) &middot; escopo: ${scopeLabel}</p>
+    <div class="table-wrap"><table><thead><tr><th>Ad set</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
 }
 
 function renderCriativos() {
   const ranked = rankAds(state.ads);
-  if (ranked.length === 0) return `<h1>Ranking de criativos</h1><div class="empty-state"><h3>Nenhum anúncio ativo</h3><p>Não há anúncios com effective_status = ACTIVE nesta conta.</p></div>`;
+  const scopeLabel = state.statusScope === "all" ? "todos os anúncios (incluindo pausados)" : "anúncios ativos";
+  if (ranked.length === 0) return `<h1>Ranking de criativos</h1><div class="empty-state"><h3>Nenhum anúncio encontrado</h3><p>Não há anúncios para o escopo "${scopeLabel}" nesta conta e período.</p></div>`;
   const clsLabel = { vencedor: ["Vencedor", "green"], neutro: ["Neutro", "slate"], perdedor: ["Perdedor", "red"], unknown: ["Sem dados", "slate"] };
   const rows = ranked.map(a => { const [label, color] = clsLabel[a.cls]; return `
     <tr>
       <td>${a.rank ?? "–"}</td>
       <td style="font-weight:500">${esc(a.name)}</td>
+      <td>${statusBadgeHtml(a.effectiveStatus)}</td>
       <td>${esc(a.campaignName)}</td>
       <td>${fmtCurrency(a.metrics.spend)}</td>
       <td>${fmtNum(a.metrics.results)}</td>
@@ -831,8 +869,8 @@ function renderCriativos() {
       <td>${fmtNum(a.metrics.ctr, 2, "%")}</td>
       <td><span class="badge ${color}"><span class="dot"></span>${label}</span></td>
     </tr>`; }).join("");
-  return `<h1>Ranking de criativos</h1><p class="subtitle">Ordenado por custo por resultado e CTR</p>
-    <div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CTR</th><th>Classificação</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
+  return `<h1>Ranking de criativos</h1><p class="subtitle">Ordenado por custo por resultado e CTR &middot; escopo: ${scopeLabel}</p>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CTR</th><th>Classificação</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
 }
 
 function renderBenchmark() {
