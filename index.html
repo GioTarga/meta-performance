@@ -714,11 +714,18 @@ function renderMain() {
     return;
   }
 
+  // Configurações sempre acessível, independente de token ou erro
+  if (state.currentPage === "configuracoes") {
+    el.innerHTML = renderConfiguracoes();
+    return;
+  }
+
   if (state.loading) { el.innerHTML = `<div class="loading">Carregando dados da conta…</div>`; return; }
 
   if (state.error) {
-    el.innerHTML = `<div class="empty-state"><h3>Erro ao consultar a Meta Marketing API</h3><p>${esc(state.error)}</p><button class="secondary" style="margin-top:16px" id="retry-btn">Tentar de novo</button></div>`;
+    el.innerHTML = `<div class="empty-state"><h3>Erro ao consultar a Meta Marketing API</h3><p>${esc(state.error)}</p><div style="display:flex;gap:10px;justify-content:center;margin-top:16px"><button class="secondary" id="retry-btn">Tentar de novo</button><button class="primary" id="go-config-btn">Atualizar Token</button></div></div>`;
     document.getElementById("retry-btn").onclick = () => loadAccountData();
+    document.getElementById("go-config-btn").onclick = () => { state.currentPage = "configuracoes"; render(); };
     return;
   }
 
