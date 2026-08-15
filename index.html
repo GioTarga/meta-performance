@@ -227,6 +227,7 @@ const NAV_ITEMS = [
   { id: "alertas", label: "Alertas" },
   { id: "andromeda", label: "Andromeda" },
   { id: "plano", label: "Plano de ação" },
+  { id: "configuracoes", label: "⚙ Configurações" },
 ];
 
 const PERIOD_PRESETS = [
@@ -729,7 +730,7 @@ function renderMain() {
   const pages = {
     overview: renderOverview, campanhas: renderCampanhas, adsets: renderAdSets,
     criativos: renderCriativos, benchmark: renderBenchmark, alertas: renderAlertas,
-    andromeda: renderAndromeda, plano: renderPlano,
+    andromeda: renderAndromeda, plano: renderPlano, configuracoes: renderConfiguracoes,
   };
   el.innerHTML = (pages[state.currentPage] || renderOverview)();
   setupTableScrollHints();
@@ -968,6 +969,75 @@ function renderPlano() {
     </div>`).join("");
 
   return `<h1>Plano de ação</h1><p class="subtitle">${items.length} ação(ões) priorizada(s)</p>${cards}`;
+}
+
+function renderConfiguracoes() {
+  const maskedToken = state.token
+    ? state.token.slice(0, 8) + "••••••••••••••••••••" + state.token.slice(-6)
+    : "Nenhum token configurado";
+
+  setTimeout(() => {
+    const saveBtn = document.getElementById("save-token-btn");
+    const disconnectBtn = document.getElementById("disconnect-btn");
+    const tokenInput = document.getElementById("new-token-input");
+
+    if (saveBtn) saveBtn.onclick = async () => {
+      const val = tokenInput?.value.trim();
+      if (!val) return;
+      saveBtn.textContent = "Salvando…";
+      saveBtn.disabled = true;
+      state.token = val;
+      localStorage.setItem("meta_perf_token", val);
+      await bootstrapAccounts();
+      state.currentPage = "overview";
+      render();
+    };
+
+    if (disconnectBtn) disconnectBtn.onclick = () => {
+      state.token = "";
+      state.accountId = "";
+      state.accounts = [];
+      state.campaigns = [];
+      state.adSets = [];
+      state.ads = [];
+      state.timeSeries = [];
+      localStorage.removeItem("meta_perf_token");
+      localStorage.removeItem("meta_perf_account");
+      state.currentPage = "overview";
+      render();
+    };
+  }, 50);
+
+  return `
+    <h1>Configurações</h1>
+    <p class="subtitle">Gerenciar token de acesso e preferências</p>
+
+    <div style="max-width:520px;display:flex;flex-direction:column;gap:16px">
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px">
+        <p style="font-size:10px;font-weight:600;color:var(--cyan-dim);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 6px">Token atual</p>
+        <p style="font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);margin:0 0 18px;word-break:break-all">${maskedToken}</p>
+
+        <p style="font-size:10px;font-weight:600;color:var(--cyan-dim);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 6px">Novo access token</p>
+        <input
+          id="new-token-input"
+          type="password"
+          placeholder="Cole o novo token aqui (EAA...)"
+          style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font-mono);background:var(--bg);color:var(--text);margin-bottom:12px"
+        />
+        <button id="save-token-btn" class="primary" style="width:100%">Atualizar Token</button>
+        <p style="font-size:11px;color:var(--text-muted);margin:10px 0 0;line-height:1.5">
+          Gere um novo token em <span style="color:var(--cyan-dim)">developers.facebook.com/tools/explorer</span> → Estender token de acesso → cole aqui. Tokens estendidos duram ~60 dias.
+        </p>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px">
+        <p style="font-size:10px;font-weight:600;color:var(--red-text);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 6px">Desconectar</p>
+        <p style="font-size:12px;color:var(--text-secondary);margin:0 0 14px;line-height:1.5">Remove o token salvo e desconecta todas as contas. Você precisará colar um novo token para usar o app novamente.</p>
+        <button id="disconnect-btn" class="secondary" style="border-color:rgba(255,59,92,0.4);color:var(--red-text)">Desconectar</button>
+      </div>
+
+    </div>`;
 }
 
 // ---------- Bootstrap ----------
