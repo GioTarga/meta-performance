@@ -57,11 +57,16 @@
 
   .layout { display: flex; min-height: calc(100vh - 60px); }
   nav.sidebar {
-    width: 208px; flex-shrink: 0; padding: 24px 12px;
+    width: 208px; flex-shrink: 0; padding: 16px 12px;
     background: rgba(10,17,32,0.5); border-right: 1px solid var(--border);
   }
+  .nav-group-label {
+    font-size: 9px; font-weight: 700; color: var(--text-muted);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 14px 12px 5px; display: block;
+  }
   nav.sidebar a {
-    display: block; padding: 9px 12px; margin-bottom: 4px;
+    display: block; padding: 9px 12px; margin-bottom: 2px;
     border-radius: 4px; font-size: 12px; font-weight: 500;
     letter-spacing: 0.04em; text-transform: uppercase;
     color: var(--text-secondary); text-decoration: none; cursor: pointer;
@@ -128,17 +133,25 @@
   }
   .metric-card .sub { font-size: 10px; color: var(--text-muted); margin-top: 6px; }
 
-  .health-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px;
-    margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+  /* ── Health Score bars ── */
+  .score-bar-track {
+    height: 5px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden;
   }
-  .health-score {
-    font-family: var(--font-display); font-size: 42px; font-weight: 700; color: var(--cyan);
-    text-shadow: 0 0 20px rgba(34,229,255,0.5);
+  .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .score-bar-green { background: var(--green-text); box-shadow: 0 0 6px rgba(16,255,163,0.4); }
+  .score-bar-amber { background: var(--amber-text); box-shadow: 0 0 6px rgba(255,183,3,0.4); }
+  .score-bar-red   { background: var(--red-text);   box-shadow: 0 0 6px rgba(255,59,92,0.4);  }
+
+  /* ── Diagnóstico items ── */
+  .diag-critical { background: var(--red-bg);   border: 1px solid rgba(255,59,92,0.2);  }
+  .diag-warning  { background: var(--amber-bg); border: 1px solid rgba(255,183,3,0.2);  }
+  .diag-good     { background: var(--green-bg); border: 1px solid rgba(16,255,163,0.2); }
+
+  /* ── KPI card variants ── */
+  .kpi-accent {
+    border-top: 2px solid var(--cyan) !important;
   }
-  .health-score span { font-size: 14px; color: var(--text-muted); font-weight: 400; font-family: var(--font-mono); }
-  .health-breakdown { display: flex; gap: 22px; text-align: center; font-size: 9px; color: var(--text-secondary); letter-spacing: 0.06em; text-transform: uppercase; }
-  .health-breakdown b { display: block; font-size: 16px; color: var(--text); font-family: var(--font-display); margin-bottom: 2px; }
+  .kpi-accent .label { color: var(--cyan-dim) !important; }
 
   table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   thead th {
@@ -218,20 +231,28 @@
 </div>
 
 <script>
-const NAV_ITEMS = [
-  { id: "overview", label: "Overview" },
-  { id: "campanhas", label: "Campanhas" },
-  { id: "adsets", label: "Ad Sets" },
-  { id: "criativos", label: "Criativos" },
-  { id: "benchmark", label: "Benchmark" },
-  { id: "alertas", label: "Alertas" },
-  { id: "andromeda", label: "Andromeda" },
-  { id: "plano", label: "Plano de ação" },
-  { id: "configuracoes", label: "⚙ Configurações" },
+const NAV_GROUPS = [
+  { label: "PERFORMANCE", items: [
+    { id: "overview",   label: "Overview" },
+    { id: "campanhas",  label: "Campanhas" },
+    { id: "adsets",     label: "Ad Sets" },
+    { id: "criativos",  label: "Criativos" },
+  ]},
+  { label: "ANÁLISE", items: [
+    { id: "benchmark",  label: "Benchmark" },
+    { id: "alertas",    label: "Alertas" },
+    { id: "andromeda",  label: "Andromeda" },
+  ]},
+  { label: "PLANEJAMENTO", items: [
+    { id: "plano",      label: "Plano de ação" },
+  ]},
+  { label: "SISTEMA", items: [
+    { id: "configuracoes", label: "⚙ Configurações" },
+  ]},
 ];
 
 const PERIOD_PRESETS = [
-  { id: "7", label: "Últimos 7 dias", days: 7 },
+  { id: "7",  label: "Últimos 7 dias",  days: 7  },
   { id: "14", label: "Últimos 14 dias", days: 14 },
   { id: "30", label: "Últimos 30 dias", days: 30 },
   { id: "60", label: "Últimos 60 dias", days: 60 },
@@ -505,11 +526,46 @@ function healthScore(campaigns, adSets, ads) {
   return { score: Math.min(100, Math.max(0, score)), ctrScore: Math.round(ctrScore), cpmScore: Math.round(cpmScore), freqScore: Math.round(freqScore), creativeScore: Math.round(creativeScore), structureScore: Math.round(structureScore) };
 }
 
+// ---------- Score helpers ----------
+
+function scoreColor(s) {
+  if (s >= 70) return "var(--green-text)";
+  if (s >= 40) return "var(--amber-text)";
+  return "var(--red-text)";
+}
+function scoreBg(s) {
+  if (s >= 70) return "var(--green-bg)";
+  if (s >= 40) return "var(--amber-bg)";
+  return "var(--red-bg)";
+}
+function scoreBarClass(s) {
+  if (s >= 70) return "score-bar-green";
+  if (s >= 40) return "score-bar-amber";
+  return "score-bar-red";
+}
+function overallLabel(s) {
+  if (s >= 80) return "EXCELENTE";
+  if (s >= 60) return "BOM";
+  if (s >= 40) return "ATENÇÃO NECESSÁRIA";
+  return "CRÍTICO";
+}
+function diagMessage(key, score) {
+  const map = {
+    CTR:        ["CTR criticamente baixo. Revisar criativos e segmentação.",              "CTR abaixo do ideal. Testar novos formatos de anúncio.",         "CTR em bom nível. Manter a segmentação atual."],
+    CPM:        ["CPM elevado. Audiência muito competitiva ou saturada.",                 "CPM aceitável. Monitorar evolução semanal.",                      "CPM eficiente. Boa relação com a audiência."],
+    Frequência: ["Frequência alta. Risco elevado de fadiga de anúncio.",                 "Frequência em zona de atenção. Renovar criativos em breve.",     "Frequência saudável. Sem risco de saturação."],
+    Criativos:  ["Diversidade de criativos crítica. Adicionar novos formatos urgente.",  "Poucos criativos ativos. Ampliar variedade de anúncios.",        "Boa diversidade de criativos. Seguir testando."],
+    Estrutura:  ["Estrutura de conta com problemas. Revisar organização das campanhas.", "Estrutura pode ser otimizada.",                                  "Estrutura de conta organizada e saudável."],
+  };
+  const msgs = map[key] || ["", "", ""];
+  return score < 40 ? msgs[0] : score < 70 ? msgs[1] : msgs[2];
+}
+
 // ---------- Gráfico de evolução (SVG puro, sem dependências) ----------
 
 function buildLineChart(series, config) {
   const { key, label, color, isCurrency } = config;
-  const width = 560, height = 160, padding = { top: 12, right: 12, bottom: 22, left: 44 };
+  const width = 560, height = 200, padding = { top: 12, right: 12, bottom: 22, left: 44 };
   const points = series.map(d => ({ date: d.date, value: d[key] }));
   const values = points.map(p => p.value).filter(v => v !== null && v !== undefined);
 
@@ -560,18 +616,22 @@ function renderEvolutionCharts() {
     return `<div class="empty-state"><h3>Série temporal não disponível</h3><p>Não foi possível carregar a evolução diária para o período selecionado.</p></div>`;
   }
   return `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
-        <b style="font-size:12px">Investimento por dia</b>
+        <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px">Investimento por dia</p>
         ${buildLineChart(series, { key: "spend", label: "Investimento", color: "#22e5ff", isCurrency: true })}
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
-        <b style="font-size:12px">Resultados por dia</b>
+        <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px">Resultados por dia</p>
         ${buildLineChart(series, { key: "results", label: "Resultados", color: "#10ffa3", isCurrency: false })}
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
-        <b style="font-size:12px">Custo por resultado por dia</b>
+        <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px">Custo por resultado</p>
         ${buildLineChart(series, { key: "costPerResult", label: "Custo por resultado", color: "#ffb703", isCurrency: true })}
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px">CTR</p>
+        ${buildLineChart(series, { key: "ctr", label: "CTR", color: "#a78bfa", isCurrency: false })}
       </div>
     </div>`;
 }
@@ -686,9 +746,12 @@ function renderHeader() {
 function renderSidebar() {
   const el = document.getElementById("sidebar");
   if (!state.token) { el.innerHTML = ""; return; }
-  el.innerHTML = NAV_ITEMS.map(item =>
-    `<a class="${state.currentPage === item.id ? "active" : ""}" data-page="${item.id}">${item.label}</a>`
-  ).join("");
+  el.innerHTML = NAV_GROUPS.map(group => `
+    <span class="nav-group-label">${group.label}</span>
+    ${group.items.map(item =>
+      `<a class="${state.currentPage === item.id ? "active" : ""}" data-page="${item.id}">${item.label}</a>`
+    ).join("")}
+  `).join("");
   el.querySelectorAll("a").forEach(a => a.onclick = () => { state.currentPage = a.dataset.page; render(); });
 }
 
@@ -756,45 +819,148 @@ function setupTableScrollHints() {
   });
 }
 
+// ---------- renderOverview — redesigned ----------
+
 function renderOverview() {
   const { campaigns, adSets, ads } = state;
   const sum = arr => arr.some(v => v !== null) ? arr.reduce((a, v) => a + (v || 0), 0) : null;
   const avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
-  const totalSpend = sum(campaigns.map(c => c.metrics.spend));
-  const totalResults = sum(campaigns.map(c => c.metrics.results));
-  const dailyBudget = sum(campaigns.map(c => c.dailyBudget));
-  const reach = sum(campaigns.map(c => c.metrics.reach));
-  const cpm = avg(campaigns.map(c => c.metrics.cpm));
-  const ctr = avg(campaigns.map(c => c.metrics.ctr));
-  const cpc = avg(campaigns.map(c => c.metrics.cpc));
-  const frequency = avg(adSets.map(a => a.metrics.frequency));
-  const cpr = totalSpend !== null && totalResults ? totalSpend / totalResults : null;
-  const hs = healthScore(campaigns, adSets, ads);
+
+  const totalSpend    = sum(campaigns.map(c => c.metrics.spend));
+  const totalResults  = sum(campaigns.map(c => c.metrics.results));
+  const dailyBudget   = sum(campaigns.map(c => c.dailyBudget));
+  const reach         = sum(campaigns.map(c => c.metrics.reach));
+  const cpm           = avg(campaigns.map(c => c.metrics.cpm));
+  const ctr           = avg(campaigns.map(c => c.metrics.ctr));
+  const cpc           = avg(campaigns.map(c => c.metrics.cpc));
+  const frequency     = avg(adSets.map(a => a.metrics.frequency));
+  const cpr           = totalSpend !== null && totalResults ? totalSpend / totalResults : null;
+  const hs            = healthScore(campaigns, adSets, ads);
+
+  const overColor = scoreColor(hs.score);
+  const overLabel = overallLabel(hs.score);
+
+  // Score bars rows
+  const scoreRows = [
+    { label: "CTR",        score: hs.ctrScore       },
+    { label: "CPM",        score: hs.cpmScore        },
+    { label: "Frequência", score: hs.freqScore       },
+    { label: "Criativos",  score: hs.creativeScore   },
+    { label: "Estrutura",  score: hs.structureScore  },
+  ];
+
+  const barsHtml = scoreRows.map(({ label, score }) => `
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:10px;color:var(--text-muted);letter-spacing:0.08em;width:72px;flex-shrink:0;text-transform:uppercase">${label}</span>
+      <div class="score-bar-track" style="flex:1">
+        <div class="score-bar-fill ${scoreBarClass(score)}" style="width:${score}%"></div>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:${scoreColor(score)};width:32px;text-align:right;flex-shrink:0">${score}</span>
+    </div>`).join("");
+
+  // Diagnóstico — sorted worst to best
+  const diagEntries = [...scoreRows].sort((a, b) => a.score - b.score);
+  const diagHtml = diagEntries.map(({ label, score }) => {
+    const cls = score < 40 ? "diag-critical" : score < 70 ? "diag-warning" : "diag-good";
+    const txtColor = score < 40 ? "var(--red-text)" : score < 70 ? "var(--amber-text)" : "var(--green-text)";
+    const tagBg    = score < 40 ? "var(--red-bg)"   : score < 70 ? "var(--amber-bg)"   : "var(--green-bg)";
+    const tagLabel = score < 40 ? "CRÍTICO"          : score < 70 ? "ATENÇÃO"           : "SAUDÁVEL";
+    return `
+      <div class="${cls}" style="border-radius:6px;padding:14px 16px;display:flex;align-items:center;gap:16px">
+        <div style="flex:1">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${label}</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${score}/100</span>
+          <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;line-height:1.4">${diagMessage(label, score)}</p>
+        </div>
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;color:${txtColor};padding:3px 8px;background:${tagBg};border-radius:3px;white-space:nowrap">${tagLabel}</span>
+      </div>`;
+  }).join("");
 
   return `
-    <h1>Overview</h1>
-    <p class="subtitle">${campaigns.length} campanha(s) &middot; ${state.statusScope === "all" ? "todos os status" : "apenas ativas"} &middot; ${state.period.since} a ${state.period.until}</p>
-    <div class="health-card">
-      <div><div class="metric-card" style="border:none;padding:0"><div class="label">Health Score da conta</div><div class="health-score">${hs.score}<span>/100</span></div></div></div>
-      <div class="health-breakdown">
-        <div><b>${hs.ctrScore}</b>CTR</div><div><b>${hs.cpmScore}</b>CPM</div><div><b>${hs.freqScore}</b>Frequência</div>
-        <div><b>${hs.creativeScore}</b>Criativos</div><div><b>${hs.structureScore}</b>Estrutura</div>
+    <!-- Page header -->
+    <div style="margin-bottom:28px">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.4em;color:var(--cyan-dim);text-transform:uppercase;margin:0 0 6px">Overview</p>
+      <p style="font-size:28px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.5px;font-family:var(--font-display)">${campaigns.length} campanha${campaigns.length !== 1 ? "s" : ""}</p>
+      <p style="font-size:11px;color:var(--text-muted);margin:4px 0 0;letter-spacing:0.05em">${state.period.since} · ${state.period.until}</p>
+    </div>
+
+    <!-- Health Score card -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;display:grid;grid-template-columns:200px 1px 1fr;gap:32px;align-items:center;margin-bottom:28px">
+      <!-- Score number -->
+      <div>
+        <p style="font-size:10px;font-weight:700;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin:0 0 12px">Health Score</p>
+        <div style="display:flex;align-items:flex-end;gap:6px;margin-bottom:14px">
+          <span style="font-size:72px;font-weight:800;color:${overColor};line-height:1;letter-spacing:-3px;font-family:var(--font-display)">${hs.score}</span>
+          <span style="font-size:20px;color:var(--text-muted);margin-bottom:8px">/100</span>
+        </div>
+        <span style="font-size:10px;font-weight:700;letter-spacing:0.2em;color:${overColor};padding:4px 10px;background:${scoreBg(hs.score)};border-radius:3px;border:1px solid ${overColor}30">${overLabel}</span>
+      </div>
+      <!-- Divider -->
+      <div style="width:1px;height:100%;background:rgba(22,50,74,0.6)"></div>
+      <!-- Score bars -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+        ${barsHtml}
       </div>
     </div>
-    <div class="metrics-grid">
-      <div class="metric-card"><div class="label">Investimento total</div><div class="value">${fmtCurrency(totalSpend)}</div></div>
-      <div class="metric-card"><div class="label">Orçamento diário</div><div class="value">${fmtCurrency(dailyBudget)}</div></div>
-      <div class="metric-card"><div class="label">Resultados</div><div class="value">${fmtNum(totalResults)}</div></div>
-      <div class="metric-card"><div class="label">Custo por resultado</div><div class="value">${fmtCurrency(cpr)}</div></div>
-      <div class="metric-card"><div class="label">CPM</div><div class="value">${fmtCurrency(cpm)}</div></div>
-      <div class="metric-card"><div class="label">CTR</div><div class="value">${fmtNum(ctr, 2, "%")}</div></div>
-      <div class="metric-card"><div class="label">CPC</div><div class="value">${fmtCurrency(cpc)}</div></div>
-      <div class="metric-card"><div class="label">Alcance</div><div class="value">${fmtNum(reach)}</div></div>
-      <div class="metric-card"><div class="label">Frequência</div><div class="value">${fmtNum(frequency, 2)}</div></div>
+
+    <!-- KPI grid — primary metrics -->
+    <div style="margin-bottom:28px">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin:0 0 14px">Métricas do período</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+        <div class="metric-card kpi-accent">
+          <div class="label">Investimento total</div>
+          <div class="value" style="font-size:28px">${fmtCurrency(totalSpend)}</div>
+        </div>
+        <div class="metric-card kpi-accent">
+          <div class="label">Resultados</div>
+          <div class="value" style="font-size:28px">${fmtNum(totalResults)}</div>
+        </div>
+        <div class="metric-card kpi-accent">
+          <div class="label">Custo por resultado</div>
+          <div class="value" style="font-size:28px">${fmtCurrency(cpr)}</div>
+        </div>
+        <div class="metric-card kpi-accent">
+          <div class="label">CPM</div>
+          <div class="value" style="font-size:28px">${fmtCurrency(cpm)}</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">CTR</div>
+          <div class="value">${fmtNum(ctr, 2, "%")}</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">CPC</div>
+          <div class="value">${fmtCurrency(cpc)}</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Alcance</div>
+          <div class="value">${fmtNum(reach)}</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Frequência</div>
+          <div class="value">${fmtNum(frequency, 2)}</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Orçamento diário</div>
+          <div class="value">${fmtCurrency(dailyBudget)}</div>
+        </div>
+      </div>
     </div>
-    <div class="section">
-      <h2>Evolução no período</h2>
+
+    <!-- Evolution charts — 2×2 grid -->
+    <div style="margin-bottom:28px">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin:0 0 14px">Evolução no período</p>
       ${renderEvolutionCharts()}
+    </div>
+
+    <!-- Diagnóstico -->
+    <div style="margin-bottom:28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <p style="font-size:10px;font-weight:700;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin:0">Diagnóstico da conta</p>
+        <a href="#" onclick="state.currentPage='alertas';render();return false;" style="font-size:11px;font-weight:700;color:var(--cyan);text-decoration:none;letter-spacing:0.08em">VER ALERTAS →</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${diagHtml}
+      </div>
     </div>`;
 }
 
@@ -816,7 +982,7 @@ function renderCampanhas() {
       <td>${badgeHtml(campaignHealth(c))}</td>
     </tr>`).join("");
   return `<h1>Campanhas</h1><p class="subtitle">${campaigns.length} campanha(s) &middot; escopo: ${scopeLabel}</p>
-    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
+    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
 }
 
 function renderAdSets() {
@@ -839,7 +1005,7 @@ function renderAdSets() {
       <td>${badgeHtml(adSetHealth(a))}</td>
     </tr>`).join("");
   return `<h1>Ad Sets</h1><p class="subtitle">${adSets.length} ad set(s) &middot; escopo: ${scopeLabel}</p>
-    <div class="table-wrap"><table><thead><tr><th>Ad set</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
+    <div class="table-wrap"><table><thead><tr><th>Ad set</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
 }
 
 function renderCriativos() {
@@ -860,7 +1026,7 @@ function renderCriativos() {
       <td><span class="badge ${color}"><span class="dot"></span>${label}</span></td>
     </tr>`; }).join("");
   return `<h1>Ranking de criativos</h1><p class="subtitle">Ordenado por custo por resultado e CTR &middot; escopo: ${scopeLabel}</p>
-    <div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CTR</th><th>Classificação</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">\u2192 role para o lado para ver mais colunas</p>`;
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CTR</th><th>Classificação</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
 }
 
 function renderBenchmark() {
