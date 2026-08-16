@@ -281,6 +281,22 @@
   .fatigue-item:last-child { border-bottom: none; }
   .funnel-bar-track { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.05); overflow: hidden; flex: 1; }
   .funnel-bar-fill  { height: 100%; border-radius: 3px; }
+  .creative-thumb {
+    width: 48px; height: 48px; object-fit: cover;
+    border-radius: 5px; border: 1px solid var(--border);
+    display: block; background: var(--surface-2);
+  }
+  .creative-thumb-placeholder {
+    width: 48px; height: 48px; border-radius: 5px; border: 1px solid var(--border);
+    background: var(--surface-2); display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: 18px;
+  }
+  .creative-type-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 3px;
+    background: rgba(34,229,255,0.07); color: var(--cyan-dim); border: 1px solid rgba(34,229,255,0.15);
+  }
 </style>
 </head>
 <body>
@@ -474,7 +490,7 @@ async function fetchBundle(accountId) {
       effective_status: statusFilter, limit: 200,
     }),
     graphGet(`/${accountId}/ads`, {
-      fields: `id,name,adset_id,campaign_id,effective_status,creative{id,name},insights.time_range(${timeRangeParam}){${adInsightFields}}`,
+      fields: `id,name,adset_id,campaign_id,effective_status,creative{id,name,thumbnail_url,image_url,object_type},insights.time_range(${timeRangeParam}){${adInsightFields}}`,
       effective_status: statusFilter, limit: 200,
     }),
   ]);
@@ -510,6 +526,8 @@ async function fetchBundle(accountId) {
     adSetName: adsetNameById.get(a.adset_id) || "Não disponível",
     campaignId: a.campaign_id, campaignName: campaignNameById.get(a.campaign_id) || "Não disponível",
     effectiveStatus: a.effective_status || null,
+    creativeType:    a.creative?.object_type   || null,
+    thumbnailUrl:    a.creative?.thumbnail_url || a.creative?.image_url || null,
     metrics: normalizeAdMetrics(a.insights?.data?.[0]),
   }));
 
@@ -690,6 +708,21 @@ function confidenceBadge(conf) {
   const map = { alta: ["conf-alta", "ALTA"], media: ["conf-media", "MÉDIA"], baixa: ["conf-baixa", "BAIXA"] };
   const [css, label] = map[conf] || ["conf-baixa", "–"];
   return `<span class="conf-badge ${css}">${label}</span>`;
+}
+
+function creativeTypeIcon(objectType) {
+  const map = {
+    VIDEO:         "🎬",
+    PHOTO:         "🖼",
+    SHARE:         "🖼",
+    CAROUSEL:      "🎠",
+    OFFER:         "🎁",
+    EVENT:         "📅",
+    STATUS:        "📝",
+    LINK:          "🔗",
+    APP_INSTALL:   "📲",
+  };
+  return map[objectType] || "🖼";
 }
 
 function inferDNA(name) {
@@ -1312,9 +1345,13 @@ function renderCriativos() {
       : `<span style="color:var(--text-muted);font-size:11px">–</span>`;
     const cprDelta = vsAvgHtml(m.costPerResult, avgCpr, true,  "");
     const ctrDelta = vsAvgHtml(m.ctr,           avgCtr, false, "");
+    const thumbHtml = a.thumbnailUrl
+      ? `<img class="creative-thumb" src="${a.thumbnailUrl}" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\'creative-thumb-placeholder\\'>${creativeTypeIcon(a.creativeType)}</div>'" />`
+      : `<div class="creative-thumb-placeholder">${creativeTypeIcon(a.creativeType)}</div>`;
     return `
       <tr class="ad-row${isSelected ? " selected" : ""}" onclick="window._selectAd('${a.id}')">
         <td style="color:var(--text-muted);font-weight:600;font-size:11px">${a.rank}</td>
+        <td style="padding:8px 10px">${thumbHtml}</td>
         <td style="font-weight:500;max-width:200px;white-space:normal;line-height:1.35;font-size:11px">${esc(a.name)}</td>
         <td>${statusBadgeHtml(a.effectiveStatus)}</td>
         <td style="max-width:150px;white-space:normal;line-height:1.3;font-size:11px;color:var(--text-secondary)">${esc(a.campaignName)}</td>
@@ -1347,7 +1384,7 @@ function renderCriativos() {
           <table>
             <thead>
               <tr>
-                <th>#</th><th>Anúncio</th><th>Status</th><th>Campanha</th>
+                <th>#</th><th style="width:58px">Preview</th><th>Anúncio</th><th>Status</th><th>Campanha</th>
                 <th>Investimento</th><th>Impressões</th><th>Resultados</th>
                 <th>Custo/Result.</th><th>CPM</th><th>CTR</th><th>CPC</th>
                 <th>CVR</th><th>Frequência</th><th style="text-align:center">Score</th>
@@ -1387,6 +1424,15 @@ function renderAdDrawer(ad) {
   const scoreRing = ad.score !== null
     ? `<div class="creative-score-ring" style="color:${scoreColor(ad.score)};border-color:${scoreColor(ad.score)};background:${scoreBg(ad.score)}">${ad.score}</div>`
     : `<div class="creative-score-ring" style="color:var(--text-muted);border-color:var(--border)">–</div>`;
+
+  // Creative preview image
+  const previewHtml = ad.thumbnailUrl ? `
+    <div style="position:relative;margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--surface-2)">
+      <img src="${ad.thumbnailUrl}" alt="${esc(ad.name)}" loading="lazy"
+        style="width:100%;max-height:220px;object-fit:cover;display:block"
+        onerror="this.parentElement.innerHTML='<div style=\\'height:80px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px\\'>Preview não disponível</div>'" />
+      ${ad.creativeType ? `<span class="creative-type-pill" style="position:absolute;bottom:8px;right:8px">${creativeTypeIcon(ad.creativeType)} ${ad.creativeType}</span>` : ""}
+    </div>` : "";
 
   // Header
   const headerHtml = `
@@ -1486,7 +1532,7 @@ function renderAdDrawer(ad) {
       </div>`
     : "";
 
-  return headerHtml + perfHtml + videoHtml + funnelHtml + fatigueHtml + dnaHtml;
+  return previewHtml + headerHtml + perfHtml + videoHtml + funnelHtml + fatigueHtml + dnaHtml;
 }
 
 window._selectAd = function(id) {
