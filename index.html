@@ -216,6 +216,71 @@
   }
   .period-custom { display: flex; gap: 6px; align-items: center; }
   .period-custom input[type="date"] { width: auto; padding: 6px 8px; font-size: 11px; }
+
+  /* ── Criativos tab ── */
+  .criativos-layout { display: flex; gap: 0; align-items: flex-start; }
+  .criativos-table-area { flex: 1; min-width: 0; }
+  .ad-drawer {
+    width: 360px; flex-shrink: 0; margin-left: 16px;
+    background: var(--surface); border: 1px solid var(--border-bright);
+    border-radius: 8px; padding: 20px;
+    max-height: calc(100vh - 130px); overflow-y: auto;
+    position: sticky; top: 80px; animation: drawer-in 0.15s ease;
+  }
+  @keyframes drawer-in { from { opacity:0; transform:translateX(8px); } to { opacity:1; transform:translateX(0); } }
+  .creative-score-ring {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 48px; height: 48px; border-radius: 50%; border: 2px solid;
+    font-size: 15px; font-weight: 800; font-family: var(--font-display);
+  }
+  .score-mini {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%; border: 2px solid;
+    font-size: 11px; font-weight: 800; font-family: var(--font-display); flex-shrink: 0;
+  }
+  .conf-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+    padding: 2px 7px; border-radius: 3px; text-transform: uppercase;
+  }
+  .conf-alta  { background: rgba(16,255,163,0.1);  color: var(--green-text); border: 1px solid rgba(16,255,163,0.3); }
+  .conf-media { background: rgba(255,183,3,0.1);   color: var(--amber-text); border: 1px solid rgba(255,183,3,0.3); }
+  .conf-baixa { background: rgba(74,106,133,0.1);  color: var(--text-muted); border: 1px solid var(--border); }
+  .cls-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.07em;
+    padding: 3px 9px; border-radius: 3px; text-transform: uppercase; border: 1px solid; white-space: nowrap;
+  }
+  .cls-vencedor    { background: rgba(16,255,163,0.1);  color: var(--green-text); border-color: rgba(16,255,163,0.35); }
+  .cls-escalar     { background: rgba(34,229,255,0.1);  color: var(--cyan);       border-color: rgba(34,229,255,0.35); }
+  .cls-testando    { background: rgba(74,106,133,0.1);  color: var(--text-secondary); border-color: var(--border); }
+  .cls-insuficiente{ background: rgba(74,106,133,0.07); color: var(--text-muted); border-color: rgba(74,106,133,0.25); }
+  .cls-saturando   { background: rgba(255,183,3,0.1);   color: var(--amber-text); border-color: rgba(255,183,3,0.35); }
+  .cls-perdedor    { background: rgba(255,59,92,0.1);   color: var(--red-text);   border-color: rgba(255,59,92,0.35); }
+  .cls-neutro      { background: rgba(74,106,133,0.1);  color: var(--text-secondary); border-color: var(--border); }
+  tbody tr.ad-row { cursor: pointer; }
+  tbody tr.ad-row.selected { background: rgba(34,229,255,0.07) !important; }
+  .delta-pos { color: var(--green-text); font-size: 9px; font-weight: 700; }
+  .delta-neg { color: var(--red-text);   font-size: 9px; font-weight: 700; }
+  .delta-neu { color: var(--text-muted); font-size: 9px; }
+  .intel-card {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+  }
+  .intel-card .intel-title { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan-dim); margin-bottom: 10px; }
+  .intel-card .intel-val   { font-size: 24px; font-weight: 800; font-family: var(--font-display); color: var(--text); }
+  .intel-card .intel-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+  .drawer-section { margin-bottom: 18px; }
+  .drawer-section-title { font-size: 9px; font-weight: 700; color: var(--cyan-dim); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .drawer-metric { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(22,50,74,0.35); font-size: 11px; }
+  .drawer-metric:last-child { border-bottom: none; }
+  .drawer-metric .dm-label { color: var(--text-muted); }
+  .drawer-metric .dm-val   { color: var(--text); font-weight: 600; }
+  .dna-tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 3px; margin: 2px; background: rgba(34,229,255,0.07); color: var(--cyan); border: 1px solid rgba(34,229,255,0.2); letter-spacing: 0.04em; }
+  .fatigue-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(22,50,74,0.3); font-size: 11px; }
+  .fatigue-item:last-child { border-bottom: none; }
+  .funnel-bar-track { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.05); overflow: hidden; flex: 1; }
+  .funnel-bar-fill  { height: 100%; border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -305,6 +370,7 @@ let state = {
   ads: [],
   timeSeries: [],
   currentPage: "overview",
+  selectedAdId: null,
   loading: false,
   error: null,
 };
@@ -353,6 +419,32 @@ function normalizeMetrics(insight) {
   };
 }
 
+function getVideoVal(arr) {
+  if (!arr || !Array.isArray(arr)) return null;
+  const e = arr[0];
+  return e ? toNum(e.value) : null;
+}
+
+function normalizeAdMetrics(insight) {
+  if (!insight) return {
+    spend: null, impressions: null, reach: null, cpm: null, ctr: null, cpc: null,
+    frequency: null, results: null, costPerResult: null, resultType: null,
+    linkClicks: null, videoPlays: null, thruplay: null, thruplayRate: null,
+    hookRate: null, watchDepth: null, cvr: null,
+  };
+  const base = normalizeMetrics(insight);
+  const videoPlays    = getVideoVal(insight.video_play_actions);
+  const thruplay      = getVideoVal(insight.video_thruplay_watched_actions);
+  const p25           = getVideoVal(insight.video_p25_watched_actions);
+  const p100          = getVideoVal(insight.video_p100_watched_actions);
+  const linkClicks    = toNum(insight.inline_link_clicks);
+  const thruplayRate  = videoPlays && thruplay  !== null ? (thruplay  / videoPlays) * 100 : null;
+  const hookRate      = videoPlays && p25       !== null ? (p25       / videoPlays) * 100 : null;
+  const watchDepth    = videoPlays && p100      !== null ? (p100      / videoPlays) * 100 : null;
+  const cvr           = linkClicks && linkClicks > 0 && base.results !== null ? (base.results / linkClicks) * 100 : null;
+  return { ...base, linkClicks, videoPlays, thruplay, thruplayRate, hookRate, watchDepth, cvr };
+}
+
 function dateRange() {
   return { since: state.period.since, until: state.period.until };
 }
@@ -370,6 +462,8 @@ async function fetchBundle(accountId) {
     ? undefined
     : JSON.stringify(["ACTIVE"]);
 
+  const adInsightFields = insightFields + ",video_thruplay_watched_actions,video_p25_watched_actions,video_p100_watched_actions,inline_link_clicks,video_play_actions";
+
   const [campaignsRes, adsetsRes, adsRes] = await Promise.all([
     graphGet(`/${accountId}/campaigns`, {
       fields: `id,name,objective,effective_status,daily_budget,bid_strategy,insights.time_range(${timeRangeParam}){${insightFields}}`,
@@ -380,7 +474,7 @@ async function fetchBundle(accountId) {
       effective_status: statusFilter, limit: 200,
     }),
     graphGet(`/${accountId}/ads`, {
-      fields: `id,name,adset_id,campaign_id,effective_status,creative{id,name},insights.time_range(${timeRangeParam}){${insightFields}}`,
+      fields: `id,name,adset_id,campaign_id,effective_status,creative{id,name},insights.time_range(${timeRangeParam}){${adInsightFields}}`,
       effective_status: statusFilter, limit: 200,
     }),
   ]);
@@ -416,7 +510,7 @@ async function fetchBundle(accountId) {
     adSetName: adsetNameById.get(a.adset_id) || "Não disponível",
     campaignId: a.campaign_id, campaignName: campaignNameById.get(a.campaign_id) || "Não disponível",
     effectiveStatus: a.effective_status || null,
-    metrics: normalizeMetrics(a.insights?.data?.[0]),
+    metrics: normalizeAdMetrics(a.insights?.data?.[0]),
   }));
 
   let timeSeries = [];
@@ -526,6 +620,154 @@ function healthScore(campaigns, adSets, ads) {
   return { score: Math.min(100, Math.max(0, score)), ctrScore: Math.round(ctrScore), cpmScore: Math.round(cpmScore), freqScore: Math.round(freqScore), creativeScore: Math.round(creativeScore), structureScore: Math.round(structureScore) };
 }
 
+// ---------- Creative analytics helpers ----------
+
+function adConfidence(m) {
+  const spend = m.spend || 0, results = m.results || 0, impressions = m.impressions || 0;
+  if (spend >= 200 && results >= 20 && impressions >= 5000) return "alta";
+  if (spend >= 50  && results >= 5  && impressions >= 1000) return "media";
+  return "baixa";
+}
+
+function adCreativeScore(m, avgSpend, avgCpr) {
+  if (!m || m.spend === null) return null;
+  let score = 0, totalWeight = 0;
+  const add = (w, raw) => { score += w * Math.min(100, Math.max(0, raw)); totalWeight += w; };
+  // Conversion (up to 40%)
+  if (m.costPerResult !== null && avgCpr > 0) add(0.25, (avgCpr / m.costPerResult) * 50);
+  if (m.results !== null)                     add(0.10, Math.log10((m.results || 0) + 1) * 50);
+  if (m.cvr !== null)                         add(0.05, m.cvr * 10);
+  // Attraction (up to 25%)
+  if (m.ctr !== null)                         add(0.15, (m.ctr / BENCHMARK.ctr.max) * 100);
+  if (m.cpm !== null)                         add(0.10, Math.max(0, (1 - m.cpm / (BENCHMARK.cpm.max * 2)) * 100));
+  // Retention — video only (up to 20%)
+  if (m.hookRate !== null)                    add(0.10, m.hookRate * 2);
+  if (m.thruplayRate !== null)                add(0.10, m.thruplayRate * 1.5);
+  // Scale (up to 15%)
+  if (m.spend !== null && avgSpend > 0)       add(0.10, Math.min(100, (m.spend / avgSpend) * 50));
+  if (m.reach !== null)                       add(0.05, Math.log10((m.reach || 0) + 1) * 25);
+  if (totalWeight === 0) return null;
+  return Math.round(Math.min(100, score / totalWeight));
+}
+
+function adClassification(m, score, conf, spendShare) {
+  const spend = m.spend || 0, freq = m.frequency || 0;
+  if (conf === "baixa" && spend < 20) return "INSUFICIENTE";
+  if (conf === "baixa")               return "TESTANDO";
+  if (freq > 3.5)                     return "SATURANDO";
+  if (score !== null) {
+    if (score >= 72 && conf === "alta" && spendShare >= 0.15) return "ESCALAR";
+    if (score >= 60)  return "VENCEDOR";
+    if (score < 35)   return "PERDEDOR";
+  }
+  return "NEUTRO";
+}
+
+function vsAvgHtml(val, avg, lowerBetter, suffix) {
+  if (val === null || avg === null || avg === 0) return "";
+  const pct = ((val - avg) / avg) * 100;
+  const better = lowerBetter ? pct < 0 : pct > 0;
+  const cls = Math.abs(pct) < 5 ? "delta-neu" : (better ? "delta-pos" : "delta-neg");
+  const sign = pct > 0 ? "+" : "";
+  return `<span class="${cls}">${sign}${pct.toFixed(0)}% vs média</span>`;
+}
+
+function classificationBadge(cls) {
+  const map = {
+    VENCEDOR:     ["cls-vencedor",     "✓ VENCEDOR"],
+    ESCALAR:      ["cls-escalar",      "↑ ESCALAR"],
+    TESTANDO:     ["cls-testando",     "◎ TESTANDO"],
+    INSUFICIENTE: ["cls-insuficiente", "○ INSUFICIENTE"],
+    SATURANDO:    ["cls-saturando",    "⚠ SATURANDO"],
+    PERDEDOR:     ["cls-perdedor",     "↓ PERDEDOR"],
+    NEUTRO:       ["cls-neutro",       "– NEUTRO"],
+  };
+  const [css, label] = map[cls] || ["cls-neutro", cls || "–"];
+  return `<span class="cls-badge ${css}">${label}</span>`;
+}
+
+function confidenceBadge(conf) {
+  const map = { alta: ["conf-alta", "ALTA"], media: ["conf-media", "MÉDIA"], baixa: ["conf-baixa", "BAIXA"] };
+  const [css, label] = map[conf] || ["conf-baixa", "–"];
+  return `<span class="conf-badge ${css}">${label}</span>`;
+}
+
+function inferDNA(name) {
+  if (!name) return [];
+  const n = name.toLowerCase();
+  const tags = [];
+  if (n.includes("reels") || n.includes("stories") || n.includes("story")) tags.push("Stories/Reels");
+  else if (n.includes("carrossel") || n.includes("carousel"))              tags.push("Carrossel");
+  else if (n.includes("vídeo") || n.includes("video"))                     tags.push("Vídeo");
+  else if (n.includes("imagem") || n.includes("foto") || n.includes("static")) tags.push("Imagem");
+  else if (n.includes("feed"))                                              tags.push("Feed");
+  if (n.includes("ugc"))                                                    tags.push("UGC");
+  if (n.includes("depoimento") || n.includes("testemunho") || n.includes("cliente")) tags.push("Prova social");
+  if (n.includes("problema") || n.includes(" dor "))                       tags.push("Pain point");
+  if (n.includes("antes") || n.includes("depois"))                         tags.push("Antes/Depois");
+  if (n.includes("oferta") || n.includes("desconto") || n.includes("promo") || n.includes("%off")) tags.push("Oferta");
+  if (n.includes("urgên") || n.includes("limitad") || n.includes("hoje"))  tags.push("Urgência");
+  if (n.includes("benefício") || n.includes("vantagem"))                   tags.push("Benefício");
+  const vMatch = n.match(/v(\d+)/); if (vMatch) tags.push(`V${vMatch[1]}`);
+  const abMatch = n.match(/\s([a-d])\s|\s([a-d])$/); if (abMatch) tags.push(`Var. ${(abMatch[1]||abMatch[2]).toUpperCase()}`);
+  return tags.slice(0, 6);
+}
+
+function creativeIntelligence(rankedAds, avgCtr, avgCpm, avgCpr) {
+  const winners     = rankedAds.filter(a => ["VENCEDOR", "ESCALAR"].includes(a.cls)).length;
+  const losers      = rankedAds.filter(a => a.cls === "PERDEDOR").length;
+  const testing     = rankedAds.filter(a => ["TESTANDO", "INSUFICIENTE"].includes(a.cls)).length;
+  const scores      = rankedAds.filter(a => a.score !== null).map(a => a.score);
+  const avgScore    = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+  const totalSpend  = rankedAds.reduce((s,a) => s + (a.metrics.spend || 0), 0);
+  const winnerSpend = rankedAds.filter(a => ["VENCEDOR","ESCALAR"].includes(a.cls)).reduce((s,a) => s + (a.metrics.spend || 0), 0);
+  const winnerPct   = totalSpend > 0 ? Math.round(winnerSpend / totalSpend * 100) : null;
+  const best        = rankedAds.find(a => a.score !== null);
+  const worst       = [...rankedAds].filter(a => a.cls === "PERDEDOR").pop();
+  return `
+    <div style="margin-bottom:24px">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin:0 0 12px">⚡ Inteligência Criativa</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px">
+        <div class="intel-card">
+          <div class="intel-title">Vencedores / Escalar</div>
+          <div class="intel-val" style="color:var(--green-text)">${winners}</div>
+          <div class="intel-sub">de ${rankedAds.length} criativos${winnerPct !== null ? ` · ${winnerPct}% do budget` : ""}</div>
+        </div>
+        <div class="intel-card">
+          <div class="intel-title">Em Teste</div>
+          <div class="intel-val" style="color:var(--text-muted)">${testing}</div>
+          <div class="intel-sub">amostra insuficiente ou observação inicial</div>
+        </div>
+        <div class="intel-card">
+          <div class="intel-title">Perdedores</div>
+          <div class="intel-val" style="color:${losers > 0 ? "var(--red-text)" : "var(--text-muted)"}">${losers}</div>
+          <div class="intel-sub">${losers > 0 ? "candidatos a pausar ou renovar" : "nenhum criativo perdedor"}</div>
+        </div>
+        <div class="intel-card">
+          <div class="intel-title">Score Médio</div>
+          <div class="intel-val" style="color:${avgScore !== null ? scoreColor(avgScore) : "var(--text-muted)"}">${avgScore ?? "–"}</div>
+          <div class="intel-sub">qualidade média do portfólio de criativos</div>
+        </div>
+        ${best ? `<div class="intel-card" style="border-color:rgba(16,255,163,0.25)">
+          <div class="intel-title">🏆 Melhor criativo</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:6px">${esc(best.name)}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="font-size:10px;color:var(--cyan)">Score ${best.score}</span>
+            ${best.metrics.costPerResult !== null ? `<span style="font-size:10px;color:var(--text-muted)">CPA ${fmtCurrency(best.metrics.costPerResult)}</span>` : ""}
+          </div>
+        </div>` : ""}
+        ${worst ? `<div class="intel-card" style="border-color:rgba(255,59,92,0.2)">
+          <div class="intel-title">🔻 Candidato a pausar</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:6px">${esc(worst.name)}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${worst.score !== null ? `<span style="font-size:10px;color:var(--red-text)">Score ${worst.score}</span>` : ""}
+            ${worst.metrics.costPerResult !== null ? `<span style="font-size:10px;color:var(--text-muted)">CPA ${fmtCurrency(worst.metrics.costPerResult)}</span>` : ""}
+          </div>
+        </div>` : ""}
+      </div>
+    </div>`;
+}
+
 // ---------- Score helpers ----------
 
 function scoreColor(s) {
@@ -565,7 +807,7 @@ function diagMessage(key, score) {
 
 function buildLineChart(series, config) {
   const { key, label, color, isCurrency } = config;
-  const width = 560, height = 200, padding = { top: 12, right: 12, bottom: 22, left: 44 };
+  const width = 560, height = 220, padding = { top: 28, right: 16, bottom: 22, left: 52 };
   const points = series.map(d => ({ date: d.date, value: d[key] }));
   const values = points.map(p => p.value).filter(v => v !== null && v !== undefined);
 
@@ -582,7 +824,7 @@ function buildLineChart(series, config) {
   const coords = points.map((p, i) => {
     const x = padding.left + (i / Math.max(points.length - 1, 1)) * innerW;
     const y = p.value === null ? null : padding.top + innerH - ((p.value - minV) / range) * innerH;
-    return { x, y, date: p.date, value: p.value };
+    return { x, y, date: p.date, value: p.value, idx: i };
   });
 
   const validCoords = coords.filter(c => c.y !== null);
@@ -591,7 +833,25 @@ function buildLineChart(series, config) {
     ? `${pathD} L ${validCoords[validCoords.length - 1].x.toFixed(1)} ${(padding.top + innerH).toFixed(1)} L ${validCoords[0].x.toFixed(1)} ${(padding.top + innerH).toFixed(1)} Z`
     : "";
 
-  const dots = validCoords.map(c => `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="2.5" fill="${color}"><title>${c.date}: ${isCurrency ? fmtCurrency(c.value) : fmtNum(c.value, 0)}</title></circle>`).join("");
+  // Label step: show value labels at regular intervals to avoid overcrowding
+  const labelStep = Math.max(1, Math.floor(points.length / 8));
+  const maxIdx = validCoords.reduce((a, b) => b.value > a.value ? b : a, validCoords[0]).idx;
+  const lastIdx = validCoords[validCoords.length - 1].idx;
+
+  const formatVal = v => isCurrency
+    ? (v >= 1000 ? `R$${(v/1000).toFixed(1)}k` : `R$${v.toFixed(2)}`)
+    : fmtNum(v, v % 1 === 0 ? 0 : 2);
+
+  const dots = validCoords.map(c => {
+    const showLabel = c.idx % labelStep === 0 || c.idx === lastIdx || c.idx === maxIdx;
+    const labelY = c.y - 9;
+    const anchor = c.x < padding.left + 30 ? "start" : c.x > width - padding.right - 30 ? "end" : "middle";
+    return `
+      <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="2.5" fill="${color}">
+        <title>${c.date}: ${isCurrency ? fmtCurrency(c.value) : fmtNum(c.value, 2)}</title>
+      </circle>
+      ${showLabel ? `<text x="${c.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="${anchor}" font-size="8.5" font-family="monospace" font-weight="600" fill="${color}" opacity="0.92">${formatVal(c.value)}</text>` : ""}`;
+  }).join("");
 
   const firstLabel = points[0]?.date ? points[0].date.slice(5) : "";
   const lastLabel = points[points.length - 1]?.date ? points[points.length - 1].date.slice(5) : "";
@@ -1009,25 +1269,236 @@ function renderAdSets() {
 }
 
 function renderCriativos() {
-  const ranked = rankAds(state.ads);
+  const ads = state.ads;
   const scopeLabel = state.statusScope === "all" ? "todos os anúncios (incluindo pausados)" : "anúncios ativos";
-  if (ranked.length === 0) return `<h1>Ranking de criativos</h1><div class="empty-state"><h3>Nenhum anúncio encontrado</h3><p>Não há anúncios para o escopo "${scopeLabel}" nesta conta e período.</p></div>`;
-  const clsLabel = { vencedor: ["Vencedor", "green"], neutro: ["Neutro", "slate"], perdedor: ["Perdedor", "red"], unknown: ["Sem dados", "slate"] };
-  const rows = ranked.map(a => { const [label, color] = clsLabel[a.cls]; return `
-    <tr>
-      <td>${a.rank ?? "–"}</td>
-      <td style="font-weight:500">${esc(a.name)}</td>
-      <td>${statusBadgeHtml(a.effectiveStatus)}</td>
-      <td>${esc(a.campaignName)}</td>
-      <td>${fmtCurrency(a.metrics.spend)}</td>
-      <td>${fmtNum(a.metrics.results)}</td>
-      <td>${fmtCurrency(a.metrics.costPerResult)}</td>
-      <td>${fmtNum(a.metrics.ctr, 2, "%")}</td>
-      <td><span class="badge ${color}"><span class="dot"></span>${label}</span></td>
-    </tr>`; }).join("");
-  return `<h1>Ranking de criativos</h1><p class="subtitle">Ordenado por custo por resultado e CTR &middot; escopo: ${scopeLabel}</p>
-    <div class="table-wrap"><table><thead><tr><th>#</th><th>Anúncio</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CTR</th><th>Classificação</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
+  if (ads.length === 0) return `<h1>Ranking de criativos</h1><div class="empty-state"><h3>Nenhum anúncio encontrado</h3><p>Não há anúncios para o escopo "${scopeLabel}" nesta conta e período.</p></div>`;
+
+  // Compute averages
+  const validM  = ads.filter(a => a.metrics.spend !== null);
+  const arr2avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
+  const avgSpend  = arr2avg(validM.map(a => a.metrics.spend));
+  const avgCpr    = arr2avg(validM.filter(a => a.metrics.costPerResult !== null).map(a => a.metrics.costPerResult));
+  const avgCtr    = arr2avg(validM.filter(a => a.metrics.ctr !== null).map(a => a.metrics.ctr));
+  const avgCpm    = arr2avg(validM.filter(a => a.metrics.cpm !== null).map(a => a.metrics.cpm));
+  const totalSpend = validM.reduce((s,a) => s + (a.metrics.spend || 0), 0);
+
+  // Score and classify
+  const scoredAds = ads.map(a => {
+    const m = a.metrics;
+    const score       = adCreativeScore(m, avgSpend || 0, avgCpr || 0);
+    const conf        = adConfidence(m);
+    const spendShare  = totalSpend > 0 ? (m.spend || 0) / totalSpend : 0;
+    const cls         = adClassification(m, score, conf, spendShare);
+    return { ...a, score, conf, cls };
+  });
+
+  // Sort: score desc → spend desc → nulls last
+  scoredAds.sort((a, b) => {
+    if (a.score !== null && b.score !== null) return b.score - a.score;
+    if (a.score !== null) return -1;
+    if (b.score !== null) return  1;
+    return (b.metrics.spend || 0) - (a.metrics.spend || 0);
+  });
+  const rankedAds = scoredAds.map((a, i) => ({ ...a, rank: i + 1 }));
+
+  const selectedId  = state.selectedAdId;
+  const selectedAd  = rankedAds.find(a => a.id === selectedId);
+
+  const rows = rankedAds.map(a => {
+    const m = a.metrics;
+    const isSelected = a.id === selectedId;
+    const scoreHtml = a.score !== null
+      ? `<span class="score-mini" style="color:${scoreColor(a.score)};border-color:${scoreColor(a.score)};background:${scoreBg(a.score)}">${a.score}</span>`
+      : `<span style="color:var(--text-muted);font-size:11px">–</span>`;
+    const cprDelta = vsAvgHtml(m.costPerResult, avgCpr, true,  "");
+    const ctrDelta = vsAvgHtml(m.ctr,           avgCtr, false, "");
+    return `
+      <tr class="ad-row${isSelected ? " selected" : ""}" onclick="window._selectAd('${a.id}')">
+        <td style="color:var(--text-muted);font-weight:600;font-size:11px">${a.rank}</td>
+        <td style="font-weight:500;max-width:200px;white-space:normal;line-height:1.35;font-size:11px">${esc(a.name)}</td>
+        <td>${statusBadgeHtml(a.effectiveStatus)}</td>
+        <td style="max-width:150px;white-space:normal;line-height:1.3;font-size:11px;color:var(--text-secondary)">${esc(a.campaignName)}</td>
+        <td>${fmtCurrency(m.spend)}</td>
+        <td>${fmtNum(m.impressions)}</td>
+        <td>${fmtNum(m.results)}</td>
+        <td>${fmtCurrency(m.costPerResult)}<br>${cprDelta}</td>
+        <td>${fmtCurrency(m.cpm)}</td>
+        <td>${fmtNum(m.ctr, 2, "%")}<br>${ctrDelta}</td>
+        <td>${fmtCurrency(m.cpc)}</td>
+        <td style="color:${m.cvr !== null ? "var(--text)" : "var(--text-muted)"}">${m.cvr !== null ? fmtNum(m.cvr, 1, "%") : "–"}</td>
+        <td>${fmtNum(m.frequency, 2)}</td>
+        <td style="text-align:center">${scoreHtml}</td>
+        <td>${classificationBadge(a.cls)}</td>
+        <td>${confidenceBadge(a.conf)}</td>
+      </tr>`;
+  }).join("");
+
+  const drawerHtml = selectedAd ? renderAdDrawer(selectedAd) : "";
+
+  return `
+    <h1>Ranking de criativos</h1>
+    <p class="subtitle">${rankedAds.length} anúncio(s) · ordenado por Creative Score · escopo: ${scopeLabel}</p>
+
+    ${creativeIntelligence(rankedAds, avgCtr, avgCpm, avgCpr)}
+
+    <div class="criativos-layout">
+      <div class="criativos-table-area">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Anúncio</th><th>Status</th><th>Campanha</th>
+                <th>Investimento</th><th>Impressões</th><th>Resultados</th>
+                <th>Custo/Result.</th><th>CPM</th><th>CTR</th><th>CPC</th>
+                <th>CVR</th><th>Frequência</th><th style="text-align:center">Score</th>
+                <th>Classificação</th><th>Confiança</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p class="scroll-nudge">→ role para o lado para ver mais colunas · clique em uma linha para o diagnóstico</p>
+      </div>
+      ${drawerHtml ? `<div class="ad-drawer" id="ad-drawer">${drawerHtml}</div>` : ""}
+    </div>`;
 }
+
+function renderAdDrawer(ad) {
+  if (!ad) return "";
+  const m = ad.metrics;
+
+  // Fatigue signals
+  const fatigueSignals = [];
+  if (m.frequency !== null && m.frequency > 3.5)
+    fatigueSignals.push({ lvl: "red",   txt: `Frequência ${fmtNum(m.frequency, 2)} — acima do limite saudável (3.5). Risco alto de fadiga.` });
+  else if (m.frequency !== null && m.frequency > 2.5)
+    fatigueSignals.push({ lvl: "amber", txt: `Frequência ${fmtNum(m.frequency, 2)} — zona de atenção. Monitorar.` });
+  if (m.ctr !== null && m.ctr < BENCHMARK.ctr.min * 0.7)
+    fatigueSignals.push({ lvl: "red",   txt: `CTR ${fmtNum(m.ctr, 2, "%")} — muito abaixo do benchmark (${BENCHMARK.ctr.min}%). Criativo pode estar cansado.` });
+  else if (m.ctr !== null && m.ctr < BENCHMARK.ctr.min)
+    fatigueSignals.push({ lvl: "amber", txt: `CTR ${fmtNum(m.ctr, 2, "%")} — abaixo do benchmark de ${BENCHMARK.ctr.min}%.` });
+  if (m.cpm !== null && m.cpm > BENCHMARK.cpm.max * 1.3)
+    fatigueSignals.push({ lvl: "red",   txt: `CPM ${fmtCurrency(m.cpm)} — elevado. Possível saturação de audiência.` });
+
+  // DNA tags
+  const dnaTags = inferDNA(ad.name);
+
+  // Score ring
+  const scoreRing = ad.score !== null
+    ? `<div class="creative-score-ring" style="color:${scoreColor(ad.score)};border-color:${scoreColor(ad.score)};background:${scoreBg(ad.score)}">${ad.score}</div>`
+    : `<div class="creative-score-ring" style="color:var(--text-muted);border-color:var(--border)">–</div>`;
+
+  // Header
+  const headerHtml = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.12em;color:var(--cyan-dim);text-transform:uppercase;margin-bottom:4px">Diagnóstico do criativo</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;word-break:break-word">${esc(ad.name)}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          ${classificationBadge(ad.cls)}
+          ${confidenceBadge(ad.conf)}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-left:14px;flex-shrink:0">
+        ${scoreRing}
+        <span style="font-size:8px;color:var(--text-muted);letter-spacing:0.1em">SCORE</span>
+      </div>
+    </div>
+    <button onclick="window._selectAd('${ad.id}')" style="background:none;border:1px solid var(--border);color:var(--text-muted);font-size:10px;font-family:var(--font-mono);cursor:pointer;padding:4px 10px;border-radius:3px;margin-bottom:16px;letter-spacing:0.04em;width:100%">✕ Fechar painel</button>`;
+
+  // Performance metrics
+  const perfHtml = `
+    <div class="drawer-section">
+      <div class="drawer-section-title">Performance</div>
+      ${[
+        ["Investimento",   fmtCurrency(m.spend)],
+        ["Impressões",     fmtNum(m.impressions)],
+        ["Alcance",        fmtNum(m.reach)],
+        ["Frequência",     fmtNum(m.frequency, 2)],
+        ["Resultados",     fmtNum(m.results)],
+        ["Custo/Resultado",fmtCurrency(m.costPerResult)],
+        ["CTR",            fmtNum(m.ctr, 2, "%")],
+        ["CPC",            fmtCurrency(m.cpc)],
+        ["CPM",            fmtCurrency(m.cpm)],
+        ["CVR",            m.cvr !== null ? fmtNum(m.cvr, 1, "%") : "N/D — sem dados de cliques"],
+        ["Cliques (link)", m.linkClicks !== null ? fmtNum(m.linkClicks) : "N/D — campo não disponível"],
+      ].map(([l,v]) => `<div class="drawer-metric"><span class="dm-label">${l}</span><span class="dm-val">${v}</span></div>`).join("")}
+    </div>`;
+
+  // Video retention (only if data exists)
+  const hasVideo = m.videoPlays !== null;
+  const videoHtml = hasVideo ? `
+    <div class="drawer-section">
+      <div class="drawer-section-title">Retenção de vídeo</div>
+      ${[
+        ["Reproduções",         fmtNum(m.videoPlays)],
+        ["Hook Rate (P25%)",    m.hookRate     !== null ? fmtNum(m.hookRate, 1, "%")     : "N/D"],
+        ["ThruPlay Rate",       m.thruplayRate !== null ? fmtNum(m.thruplayRate, 1, "%") : "N/D"],
+        ["Watch Depth (P100%)", m.watchDepth   !== null ? fmtNum(m.watchDepth, 1, "%")   : "N/D"],
+      ].map(([l,v]) => `<div class="drawer-metric"><span class="dm-label">${l}</span><span class="dm-val">${v}</span></div>`).join("")}
+    </div>` : "";
+
+  // Conversion funnel
+  const hasFunnel = m.impressions !== null && (m.linkClicks !== null || m.results !== null);
+  const funnelHtml = hasFunnel ? (() => {
+    const totalBase = m.impressions || 1;
+    const steps = [
+      { label: "Impressões",     val: m.impressions, pct: 100 },
+      { label: "Cliques (link)", val: m.linkClicks,  pct: m.linkClicks  !== null ? (m.linkClicks  / totalBase) * 100 : null },
+      { label: "Resultados",     val: m.results,     pct: m.results     !== null ? (m.results     / totalBase) * 100 : null },
+    ].filter(s => s.val !== null);
+    return `<div class="drawer-section">
+      <div class="drawer-section-title">Funil de conversão</div>
+      ${steps.map(s => `
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+            <span style="color:var(--text-muted)">${s.label}</span>
+            <span style="font-weight:600;color:var(--text)">${fmtNum(s.val)}${s.pct !== null && s.pct < 100 ? ` <span style="color:var(--text-muted);font-size:9px">${s.pct.toFixed(2)}%</span>` : ""}</span>
+          </div>
+          <div class="funnel-bar-track">
+            <div class="funnel-bar-fill" style="width:${Math.min(100, s.pct || 100)}%;background:var(--cyan);opacity:0.65"></div>
+          </div>
+        </div>`).join("")}
+    </div>`;
+  })() : "";
+
+  // Fatigue
+  const fatigueHtml = fatigueSignals.length > 0
+    ? `<div class="drawer-section">
+        <div class="drawer-section-title">⚠ Sinais de fadiga</div>
+        ${fatigueSignals.map(s => `
+          <div class="fatigue-item">
+            <span style="color:${s.lvl === "red" ? "var(--red-text)" : "var(--amber-text)"}">●</span>
+            <span style="color:var(--text-secondary)">${s.txt}</span>
+          </div>`).join("")}
+      </div>`
+    : `<div class="drawer-section">
+        <div class="drawer-section-title">Sinais de fadiga</div>
+        <p style="font-size:11px;color:var(--text-muted);margin:0">✓ Nenhum sinal de fadiga identificado nos dados disponíveis.</p>
+      </div>`;
+
+  // DNA
+  const dnaHtml = dnaTags.length > 0
+    ? `<div class="drawer-section">
+        <div class="drawer-section-title">DNA do criativo</div>
+        <div>${dnaTags.map(t => `<span class="dna-tag">${t}</span>`).join("")}</div>
+        <p style="font-size:10px;color:var(--text-muted);margin:8px 0 0;line-height:1.5">Inferido a partir do nome do anúncio. Revise se necessário.</p>
+      </div>`
+    : "";
+
+  return headerHtml + perfHtml + videoHtml + funnelHtml + fatigueHtml + dnaHtml;
+}
+
+window._selectAd = function(id) {
+  state.selectedAdId = state.selectedAdId === id ? null : id;
+  render();
+  if (state.selectedAdId) {
+    setTimeout(() => {
+      const drawer = document.getElementById("ad-drawer");
+      if (drawer) drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 60);
+  }
+};
 
 function renderBenchmark() {
   const { campaigns, adSets } = state;
