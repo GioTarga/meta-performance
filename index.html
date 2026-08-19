@@ -375,6 +375,20 @@ const ACTION_LABELS = {
   "post_engagement": "Engajamentos",
 };
 
+// Ordem de prioridade: métricas de conversão > cliques > engajamento
+// Evita que post_engagement (geralmente alto) sobrescreva a métrica real da campanha
+const ACTION_PRIORITY = [
+  "onsite_conversion.messaging_conversation_started_7d",
+  "onsite_conversion.lead_grouped",
+  "offsite_conversion.fb_pixel_lead",
+  "lead",
+  "leadgen.other",
+  "purchase",
+  "offsite_conversion.fb_pixel_purchase",
+  "link_click",
+  "post_engagement",
+];
+
 let state = {
   token: localStorage.getItem("meta_perf_token") || "",
   accountId: localStorage.getItem("meta_perf_account") || "",
@@ -414,24 +428,22 @@ function toNum(v) {
 }
 
 function primaryResult(insight) {
-  // Prioridade: campo nativo `results` da API (respeita o objetivo configurado na campanha)
-  const nativeResults = toNum(insight?.results);
-  if (nativeResults !== null) {
-    const nativeCpr = toNum(insight?.cost_per_result);
-    // Tenta inferir o label a partir das actions conhecidas
-    const actions = insight?.actions || [];
-    const known = actions.filter(a => ACTION_LABELS[a.action_type]);
-    const resultType = known.length > 0
-      ? (ACTION_LABELS[known.reduce((max, cur) => (toNum(cur.value)||0) > (toNum(max.value)||0) ? cur : max, known[0]).action_type] || "Resultado")
-      : "Resultado";
-    return { results: nativeResults, costPerResult: nativeCpr, resultType };
-  }
-  // Fallback: inferir pelo maior valor nas actions conhecidas
+  // Usa ordem de prioridade para selecionar a métrica mais relevante da campanha.
+  // Conversões/mensagens têm prioridade sobre cliques e engajamentos gerais —
+  // evita que post_engagement (alto em campanhas de Engagement) sobrescreva a métrica real.
   const actions = insight?.actions;
   if (!actions || actions.length === 0) return { results: null, costPerResult: null, resultType: null };
   const known = actions.filter(a => ACTION_LABELS[a.action_type]);
   const candidates = known.length > 0 ? known : actions;
-  const best = candidates.reduce((max, cur) => (toNum(cur.value) || 0) > (toNum(max.value) || 0) ? cur : max, candidates[0]);
+  // Ordena pelos índices de prioridade (menor índice = maior prioridade)
+  const byPriority = [...candidates].sort((a, b) => {
+    const ia = ACTION_PRIORITY.indexOf(a.action_type);
+    const ib = ACTION_PRIORITY.indexOf(b.action_type);
+    const pa = ia === -1 ? 999 : ia;
+    const pb = ib === -1 ? 999 : ib;
+    return pa - pb;
+  });
+  const best = byPriority[0];
   const results = toNum(best.value);
   const resultType = ACTION_LABELS[best.action_type] || best.action_type;
   const costEntry = insight?.cost_per_action_type?.find(c => c.action_type === best.action_type);
