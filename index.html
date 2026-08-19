@@ -414,6 +414,19 @@ function toNum(v) {
 }
 
 function primaryResult(insight) {
+  // Prioridade: campo nativo `results` da API (respeita o objetivo configurado na campanha)
+  const nativeResults = toNum(insight?.results);
+  if (nativeResults !== null) {
+    const nativeCpr = toNum(insight?.cost_per_result);
+    // Tenta inferir o label a partir das actions conhecidas
+    const actions = insight?.actions || [];
+    const known = actions.filter(a => ACTION_LABELS[a.action_type]);
+    const resultType = known.length > 0
+      ? (ACTION_LABELS[known.reduce((max, cur) => (toNum(cur.value)||0) > (toNum(max.value)||0) ? cur : max, known[0]).action_type] || "Resultado")
+      : "Resultado";
+    return { results: nativeResults, costPerResult: nativeCpr, resultType };
+  }
+  // Fallback: inferir pelo maior valor nas actions conhecidas
   const actions = insight?.actions;
   if (!actions || actions.length === 0) return { results: null, costPerResult: null, resultType: null };
   const known = actions.filter(a => ACTION_LABELS[a.action_type]);
@@ -472,7 +485,7 @@ async function fetchAccounts() {
 
 async function fetchBundle(accountId) {
   const { since, until } = dateRange();
-  const insightFields = "spend,impressions,reach,cpm,ctr,cpc,frequency,actions,cost_per_action_type";
+  const insightFields = "spend,impressions,reach,cpm,ctr,cpc,frequency,actions,cost_per_action_type,results,cost_per_result";
   const timeRangeParam = `{'since':'${since}','until':'${until}'}`;
   const statusFilter = state.statusScope === "all"
     ? undefined
