@@ -649,12 +649,34 @@ function generateAlerts(campaigns, adSets, ads) {
 }
 
 function healthScore(campaigns, adSets, ads) {
-  const avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
-  const avgCtr = avg(campaigns.map(c => c.metrics.ctr));
+  // CTR ponderado por impressões
+  const avgCtr = (() => {
+    const valid = campaigns.filter(c => c.metrics.ctr !== null && c.metrics.impressions > 0);
+    if (!valid.length) return null;
+    const totalImp = valid.reduce((s, c) => s + c.metrics.impressions, 0);
+    const totalClicks = valid.reduce((s, c) => s + (c.metrics.ctr / 100) * c.metrics.impressions, 0);
+    return totalImp > 0 ? (totalClicks / totalImp) * 100 : null;
+  })();
   const ctrScore = avgCtr === null ? 50 : Math.min(100, Math.max(0, (avgCtr / BENCHMARK.ctr.max) * 100));
-  const avgCpm = avg(campaigns.map(c => c.metrics.cpm));
+
+  // CPM ponderado por impressões (= totalSpend/totalImpressions*1000)
+  const avgCpm = (() => {
+    const totalSp = campaigns.reduce((s, c) => s + (c.metrics.spend || 0), 0);
+    const totalImp = campaigns.reduce((s, c) => s + (c.metrics.impressions || 0), 0);
+    return totalSp > 0 && totalImp > 0 ? (totalSp / totalImp) * 1000 : null;
+  })();
   const cpmScore = avgCpm === null ? 50 : Math.min(100, Math.max(0, (1 - avgCpm / (BENCHMARK.cpm.max * 1.5)) * 100));
-  const avgFreq = avg(adSets.map(a => a.metrics.frequency));
+
+  // Frequência ponderada por alcance dos ad sets
+  const avgFreq = (() => {
+    const valid = adSets.filter(a => a.metrics.frequency !== null && a.metrics.reach > 0);
+    if (!valid.length) {
+      const vals = adSets.map(a => a.metrics.frequency).filter(v => v !== null);
+      return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    }
+    const totalR = valid.reduce((s, a) => s + a.metrics.reach, 0);
+    return valid.reduce((s, a) => s + a.metrics.frequency * (a.metrics.reach / totalR), 0);
+  })();
   const freqScore = avgFreq === null ? 50 : Math.min(100, Math.max(0, (1 - avgFreq / (BENCHMARK.alertFrequency * 2)) * 100));
   const creativeScore = ads.length === 0 ? 0 : Math.min(100, (Math.min(ads.length, 15) / 15) * 100);
   const perCampaign = campaigns.length > 0 ? adSets.length / campaigns.length : 0;
@@ -1144,15 +1166,50 @@ function renderOverview() {
   const sum = arr => arr.some(v => v !== null) ? arr.reduce((a, v) => a + (v || 0), 0) : null;
   const avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
 
-  const totalSpend    = sum(campaigns.map(c => c.metrics.spend));
-  const totalResults  = sum(campaigns.map(c => c.metrics.results));
-  const dailyBudget   = sum(campaigns.map(c => c.dailyBudget));
-  const reach         = sum(campaigns.map(c => c.metrics.reach));
-  const cpm           = avg(campaigns.map(c => c.metrics.cpm));
-  const ctr           = avg(campaigns.map(c => c.metrics.ctr));
-  const cpc           = avg(campaigns.map(c => c.metrics.cpc));
-  const frequency     = avg(adSets.map(a => a.metrics.frequency));
-  const cpr           = totalSpend !== null && totalResults ? totalSpend / totalResults : null;
+  const totalSpend       = sum(campaigns.map(c => c.metrics.spend));
+  const totalResults     = sum(campaigns.map(c => c.metrics.results));
+  const dailyBudget      = sum(campaigns.map(c => c.dailyBudget));
+  const reach            = sum(campaigns.map(c => c.metrics.reach));
+  const totalImpressions = sum(campaigns.map(c => c.metrics.impressions));
+
+  // CPM: gasto total / impressões totais × 1000 (igual ao Ads Manager)
+  const cpm = totalSpend !== null && totalImpressions ? (totalSpend / totalImpressions) * 1000 : null;
+
+  // CTR: média ponderada por impressões (cliques estimados / impressões totais × 100)
+  const ctr = (() => {
+    const valid = campaigns.filter(c => c.metrics.ctr !== null && c.metrics.impressions !== null && c.metrics.impressions > 0);
+    if (!valid.length) return null;
+    const totalImp = valid.reduce((s, c) => s + c.metrics.impressions, 0);
+    const totalClicks = valid.reduce((s, c) => s + (c.metrics.ctr / 100) * c.metrics.impressions, 0);
+    return totalImp > 0 ? (totalClicks / totalImp) * 100 : null;
+  })();
+
+  // CPC: gasto total / cliques totais estimados (igual ao Ads Manager)
+  const cpc = (() => {
+    const valid = campaigns.filter(c => c.metrics.cpc !== null && c.metrics.spend !== null && c.metrics.cpc > 0);
+    if (!valid.length) return null;
+    // cliques estimados por campanha = spend / cpc
+    const totalClicks = valid.reduce((s, c) => s + (c.metrics.spend / c.metrics.cpc), 0);
+    const totalSp = valid.reduce((s, c) => s + c.metrics.spend, 0);
+    return totalClicks > 0 ? totalSp / totalClicks : null;
+  })();
+
+  // Frequência: média ponderada por alcance dos ad sets
+  const frequency = (() => {
+    const valid = adSets.filter(a => a.metrics.frequency !== null && a.metrics.reach !== null && a.metrics.reach > 0);
+    if (!valid.length) return avg(adSets.map(a => a.metrics.frequency));
+    const totalReach = valid.reduce((s, a) => s + a.metrics.reach, 0);
+    return valid.reduce((s, a) => s + a.metrics.frequency * (a.metrics.reach / totalReach), 0);
+  })();
+  // Usa cost_per_action_type da API (média ponderada por resultados), igual ao Ads Manager.
+  // Fallback para totalSpend/totalResults apenas se a API não retornar o campo.
+  const cprFromApi = (() => {
+    const valid = campaigns.filter(c => c.metrics.costPerResult !== null && c.metrics.results > 0);
+    if (!valid.length) return null;
+    const totalR = valid.reduce((s, c) => s + c.metrics.results, 0);
+    return valid.reduce((s, c) => s + c.metrics.costPerResult * (c.metrics.results / totalR), 0);
+  })();
+  const cpr = cprFromApi !== null ? cprFromApi : (totalSpend !== null && totalResults ? totalSpend / totalResults : null);
   const hs            = healthScore(campaigns, adSets, ads);
 
   const overColor = scoreColor(hs.score);
@@ -1331,14 +1388,37 @@ function renderCriativos() {
   const scopeLabel = state.statusScope === "all" ? "todos os anúncios (incluindo pausados)" : "anúncios ativos";
   if (ads.length === 0) return `<h1>Ranking de criativos</h1><div class="empty-state"><h3>Nenhum anúncio encontrado</h3><p>Não há anúncios para o escopo "${scopeLabel}" nesta conta e período.</p></div>`;
 
-  // Compute averages
+  // Compute averages (ponderados por impressões/resultados — igual ao Ads Manager)
   const validM  = ads.filter(a => a.metrics.spend !== null);
   const arr2avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
-  const avgSpend  = arr2avg(validM.map(a => a.metrics.spend));
-  const avgCpr    = arr2avg(validM.filter(a => a.metrics.costPerResult !== null).map(a => a.metrics.costPerResult));
-  const avgCtr    = arr2avg(validM.filter(a => a.metrics.ctr !== null).map(a => a.metrics.ctr));
-  const avgCpm    = arr2avg(validM.filter(a => a.metrics.cpm !== null).map(a => a.metrics.cpm));
+  const avgSpend   = arr2avg(validM.map(a => a.metrics.spend));
   const totalSpend = validM.reduce((s,a) => s + (a.metrics.spend || 0), 0);
+
+  // CPR ponderado por resultados
+  const avgCpr = (() => {
+    const v = validM.filter(a => a.metrics.costPerResult !== null && a.metrics.results > 0);
+    if (!v.length) return arr2avg(validM.filter(a => a.metrics.costPerResult !== null).map(a => a.metrics.costPerResult));
+    const totalR = v.reduce((s,a) => s + a.metrics.results, 0);
+    return v.reduce((s,a) => s + a.metrics.costPerResult * (a.metrics.results / totalR), 0);
+  })();
+
+  // CTR ponderado por impressões
+  const avgCtr = (() => {
+    const v = validM.filter(a => a.metrics.ctr !== null && a.metrics.impressions > 0);
+    if (!v.length) return null;
+    const totalImp = v.reduce((s,a) => s + a.metrics.impressions, 0);
+    const totalClicks = v.reduce((s,a) => s + (a.metrics.ctr / 100) * a.metrics.impressions, 0);
+    return totalImp > 0 ? (totalClicks / totalImp) * 100 : null;
+  })();
+
+  // CPM ponderado por impressões
+  const avgCpm = (() => {
+    const v = validM.filter(a => a.metrics.impressions > 0 && a.metrics.spend !== null);
+    if (!v.length) return null;
+    const totalSp = v.reduce((s,a) => s + a.metrics.spend, 0);
+    const totalImp = v.reduce((s,a) => s + a.metrics.impressions, 0);
+    return totalImp > 0 ? (totalSp / totalImp) * 1000 : null;
+  })();
 
   // Score and classify
   const scoredAds = ads.map(a => {
@@ -1573,12 +1653,26 @@ window._selectAd = function(id) {
 
 function renderBenchmark() {
   const { campaigns, adSets } = state;
-  const avg = arr => { const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
-  const cpm = avg(campaigns.map(c => c.metrics.cpm));
-  const ctr = avg(campaigns.map(c => c.metrics.ctr));
   const sumSpend = campaigns.reduce((s, c) => s + (c.metrics.spend || 0), 0);
   const sumResults = campaigns.reduce((s, c) => s + (c.metrics.results || 0), 0);
-  const cpr = sumResults > 0 ? sumSpend / sumResults : null;
+  const sumImpressions = campaigns.reduce((s, c) => s + (c.metrics.impressions || 0), 0);
+
+  // CPM e CTR ponderados por impressões (igual ao Ads Manager)
+  const cpm = sumSpend > 0 && sumImpressions > 0 ? (sumSpend / sumImpressions) * 1000 : null;
+  const ctr = (() => {
+    const valid = campaigns.filter(c => c.metrics.ctr !== null && c.metrics.impressions > 0);
+    if (!valid.length) return null;
+    const totalImp = valid.reduce((s, c) => s + c.metrics.impressions, 0);
+    const totalClicks = valid.reduce((s, c) => s + (c.metrics.ctr / 100) * c.metrics.impressions, 0);
+    return totalImp > 0 ? (totalClicks / totalImp) * 100 : null;
+  })();
+  const cprFromApiB = (() => {
+    const valid = campaigns.filter(c => c.metrics.costPerResult !== null && c.metrics.results > 0);
+    if (!valid.length) return null;
+    const totalR = valid.reduce((s, c) => s + c.metrics.results, 0);
+    return valid.reduce((s, c) => s + c.metrics.costPerResult * (c.metrics.results / totalR), 0);
+  })();
+  const cpr = cprFromApiB !== null ? cprFromApiB : (sumResults > 0 ? sumSpend / sumResults : null);
 
   const comps = [
     { label: "CPM", value: cpm, min: BENCHMARK.cpm.min, max: BENCHMARK.cpm.max, lowerBetter: true, isPct: false },
