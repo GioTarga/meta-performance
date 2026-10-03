@@ -64,4 +64,4 @@ async function upsert(table, rows, conflictCols) {
   }
 }
 
-module.exports = { select, upsert };   
+module.exports = { select, upsert };
