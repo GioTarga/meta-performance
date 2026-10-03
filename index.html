@@ -327,6 +327,9 @@ const NAV_GROUPS = [
   { label: "PLANEJAMENTO", items: [
     { id: "plano",      label: "Plano de ação" },
   ]},
+  { label: "GOOGLE ADS", items: [
+    { id: "google-overview", label: "Overview" },
+  ]},
   { label: "SISTEMA", items: [
     { id: "configuracoes", label: "⚙ Configurações" },
   ]},
@@ -403,6 +406,13 @@ let state = {
   selectedAdId: null,
   loading: false,
   error: null,
+  googleAds: {
+    customerId: localStorage.getItem("meta_perf_google_customer_id") || "",
+    campaigns: [],
+    loading: false,
+    error: null,
+    loaded: false,
+  },
 };
 
 // ---------- Graph API helpers ----------
@@ -417,6 +427,21 @@ async function graphGet(path, params) {
   const json = await res.json();
   if (!res.ok || json.error) {
     throw new Error(json?.error?.message || `Erro na Graph API (${res.status})`);
+  }
+  return json;
+}
+
+// ---------- Google Ads helpers (via proxy serverless /api/google-ads, dados vindo do Windsor.ai) ----------
+
+async function googleAdsGet(customerId, since, until) {
+  const url = new URL("/api/google-ads", window.location.origin);
+  url.searchParams.set("customerId", customerId);
+  url.searchParams.set("since", since);
+  url.searchParams.set("until", until);
+  const res = await fetch(url.toString());
+  const json = await res.json();
+  if (!res.ok || json.error) {
+    throw new Error(json?.error || `Erro no proxy do Google Ads (${res.status})`);
   }
   return json;
 }
@@ -1069,7 +1094,10 @@ function renderHeader() {
     const preset = e.target.value;
     state.period = computePeriod(preset);
     render();
-    if (preset !== "custom") loadAccountData();
+    if (preset !== "custom") {
+      loadAccountData();
+      if (state.currentPage === "google-overview") loadGoogleAdsData();
+    }
   };
 
   const applyBtn = document.getElementById("apply-custom-range");
@@ -1079,6 +1107,7 @@ function renderHeader() {
     if (since && until) {
       state.period = { preset: "custom", since, until };
       loadAccountData();
+      if (state.currentPage === "google-overview") loadGoogleAdsData();
     }
   };
 }
@@ -1092,7 +1121,11 @@ function renderSidebar() {
       `<a class="${state.currentPage === item.id ? "active" : ""}" data-page="${item.id}">${item.label}</a>`
     ).join("")}
   `).join("");
-  el.querySelectorAll("a").forEach(a => a.onclick = () => { state.currentPage = a.dataset.page; render(); });
+  el.querySelectorAll("a").forEach(a => a.onclick = () => {
+    state.currentPage = a.dataset.page;
+    render();
+    if (state.currentPage === "google-overview" && !state.googleAds.loaded) loadGoogleAdsData();
+  });
 }
 
 function renderMain() {
@@ -1141,6 +1174,7 @@ function renderMain() {
     overview: renderOverview, campanhas: renderCampanhas, adsets: renderAdSets,
     criativos: renderCriativos, benchmark: renderBenchmark, alertas: renderAlertas,
     andromeda: renderAndromeda, plano: renderPlano, configuracoes: renderConfiguracoes,
+    "google-overview": renderGoogleOverview,
   };
   el.innerHTML = (pages[state.currentPage] || renderOverview)();
   setupTableScrollHints();
@@ -1797,6 +1831,93 @@ function renderPlano() {
   return `<h1>Plano de ação</h1><p class="subtitle">${items.length} ação(ões) priorizada(s)</p>${cards}`;
 }
 
+// ---------- Google Ads (dados via Windsor.ai) ----------
+
+function renderGoogleOverview() {
+  const ga = state.googleAds;
+
+  if (!ga.customerId) {
+    setTimeout(() => {
+      const btn = document.getElementById("go-config-google-btn");
+      if (btn) btn.onclick = () => { state.currentPage = "configuracoes"; render(); };
+    }, 50);
+    return `
+      <h1>Google Ads</h1>
+      <p class="subtitle">Nenhuma conta configurada</p>
+      <div class="empty-state">
+        <h3>Configure a conta do Google Ads</h3>
+        <p>Vá em Configurações e informe o ID da conta Google Ads conectada no Windsor.ai (formato 123-456-7890).</p>
+        <button class="primary" id="go-config-google-btn">Ir para Configurações</button>
+      </div>`;
+  }
+
+  if (ga.loading) return `<h1>Google Ads</h1><div class="loading">Carregando dados da conta…</div>`;
+
+  if (ga.error) {
+    setTimeout(() => {
+      const retry = document.getElementById("retry-google-btn");
+      if (retry) retry.onclick = () => loadGoogleAdsData();
+      const cfg = document.getElementById("go-config-google-btn-err");
+      if (cfg) cfg.onclick = () => { state.currentPage = "configuracoes"; render(); };
+    }, 50);
+    return `<h1>Google Ads</h1><div class="empty-state"><h3>Erro ao consultar o Google Ads (via Windsor.ai)</h3><p>${esc(ga.error)}</p>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+        <button class="secondary" id="retry-google-btn">Tentar de novo</button>
+        <button class="primary" id="go-config-google-btn-err">Configurações</button>
+      </div></div>`;
+  }
+
+  const { campaigns } = ga;
+  if (campaigns.length === 0) {
+    return `<h1>Google Ads</h1><p class="subtitle">Conta ${esc(ga.customerId)}</p>
+      <div class="empty-state"><h3>Nenhuma campanha encontrada</h3><p>Não há dados de campanhas para o período selecionado.</p></div>`;
+  }
+
+  const sum = key => campaigns.reduce((s, c) => s + (c[key] || 0), 0);
+  const totalSpend = sum("spend");
+  const totalImpressions = sum("impressions");
+  const totalClicks = sum("clicks");
+  const totalConversions = sum("conversions");
+  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : null;
+  const cpc = totalClicks > 0 ? totalSpend / totalClicks : null;
+  const costPerConversion = totalConversions > 0 ? totalSpend / totalConversions : null;
+
+  const rows = campaigns.map(c => `
+    <tr>
+      <td style="font-weight:500">${esc(c.name)}</td>
+      <td><span class="badge ${c.status === "ENABLED" ? "green" : "slate"}"><span class="dot"></span>${esc(c.status || "Não disponível")}</span></td>
+      <td>${fmtCurrency(c.spend)}</td>
+      <td>${fmtNum(c.impressions)}</td>
+      <td>${fmtNum(c.clicks)}</td>
+      <td>${fmtNum(c.ctr, 2, "%")}</td>
+      <td>${fmtCurrency(c.avgCpc)}</td>
+      <td>${fmtNum(c.conversions, 1)}</td>
+      <td>${c.conversions > 0 ? fmtCurrency(c.spend / c.conversions) : "Não disponível"}</td>
+    </tr>`).join("");
+
+  return `
+    <h1>Google Ads — Overview</h1>
+    <p class="subtitle">Conta ${esc(ga.customerId)} · ${campaigns.length} campanha(s) · ${state.period.since} · ${state.period.until} · dados via Windsor.ai</p>
+
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="label">Investimento</div><div class="value">${fmtCurrency(totalSpend)}</div></div>
+      <div class="metric-card"><div class="label">Impressões</div><div class="value">${fmtNum(totalImpressions)}</div></div>
+      <div class="metric-card"><div class="label">Cliques</div><div class="value">${fmtNum(totalClicks)}</div></div>
+      <div class="metric-card"><div class="label">CTR</div><div class="value">${fmtNum(ctr, 2, "%")}</div></div>
+      <div class="metric-card"><div class="label">CPC médio</div><div class="value">${fmtCurrency(cpc)}</div></div>
+      <div class="metric-card"><div class="label">Conversões</div><div class="value">${fmtNum(totalConversions, 1)}</div></div>
+      <div class="metric-card"><div class="label">Custo/Conversão</div><div class="value">${fmtCurrency(costPerConversion)}</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Campanha</th><th>Status</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC médio</th><th>Conversões</th><th>Custo/Conversão</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
+}
+
 function renderConfiguracoes() {
   const maskedToken = state.token
     ? state.token.slice(0, 8) + "••••••••••••••••••••" + state.token.slice(-6)
@@ -1832,6 +1953,31 @@ function renderConfiguracoes() {
       state.currentPage = "overview";
       render();
     };
+
+    const saveGoogleBtn = document.getElementById("save-google-customer-btn");
+    const googleInput = document.getElementById("google-customer-id-input");
+    const disconnectGoogleBtn = document.getElementById("disconnect-google-btn");
+
+    if (saveGoogleBtn) saveGoogleBtn.onclick = async () => {
+      const val = googleInput?.value.trim();
+      if (!val) return;
+      saveGoogleBtn.textContent = "Salvando…";
+      saveGoogleBtn.disabled = true;
+      state.googleAds.customerId = val;
+      state.googleAds.loaded = false;
+      localStorage.setItem("meta_perf_google_customer_id", val);
+      state.currentPage = "google-overview";
+      await loadGoogleAdsData();
+    };
+
+    if (disconnectGoogleBtn) disconnectGoogleBtn.onclick = () => {
+      state.googleAds.customerId = "";
+      state.googleAds.campaigns = [];
+      state.googleAds.loaded = false;
+      state.googleAds.error = null;
+      localStorage.removeItem("meta_perf_google_customer_id");
+      render();
+    };
   }, 50);
 
   return `
@@ -1863,6 +2009,25 @@ function renderConfiguracoes() {
         <button id="disconnect-btn" class="secondary" style="border-color:rgba(255,59,92,0.4);color:var(--red-text)">Desconectar</button>
       </div>
 
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px">
+        <p style="font-size:10px;font-weight:600;color:var(--cyan-dim);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 6px">Google Ads (via Windsor.ai)</p>
+        <p style="font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);margin:0 0 18px;word-break:break-all">${state.googleAds.customerId ? esc(state.googleAds.customerId) : "Nenhuma conta configurada"}</p>
+
+        <p style="font-size:10px;font-weight:600;color:var(--cyan-dim);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 6px">ID da conta Google Ads</p>
+        <input
+          id="google-customer-id-input"
+          type="text"
+          placeholder="123-456-7890"
+          value="${esc(state.googleAds.customerId)}"
+          style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font-mono);background:var(--bg);color:var(--text);margin-bottom:12px"
+        />
+        <button id="save-google-customer-btn" class="primary" style="width:100%;margin-bottom:10px">Salvar conta</button>
+        ${state.googleAds.customerId ? `<button id="disconnect-google-btn" class="secondary" style="width:100%;border-color:rgba(255,59,92,0.4);color:var(--red-text)">Remover conta Google Ads</button>` : ""}
+        <p style="font-size:11px;color:var(--text-muted);margin:10px 0 0;line-height:1.5">
+          É o ID da conta Google Ads como aparece conectada no Windsor.ai (ex: 123-456-7890). A chave de API do Windsor fica configurada no servidor (Vercel), não aqui.
+        </p>
+      </div>
+
     </div>`;
 }
 
@@ -1877,6 +2042,23 @@ async function bootstrapAccounts() {
     else { render(); }
   } catch (err) {
     state.loading = false; state.error = err.message; render();
+  }
+}
+
+async function loadGoogleAdsData() {
+  if (!state.googleAds.customerId) { render(); return; }
+  state.googleAds.loading = true; state.googleAds.error = null; render();
+  try {
+    const { since, until } = state.period;
+    const data = await googleAdsGet(state.googleAds.customerId, since, until);
+    state.googleAds.campaigns = data.campaigns || [];
+    state.googleAds.loading = false;
+    state.googleAds.loaded = true;
+    render();
+  } catch (err) {
+    state.googleAds.loading = false;
+    state.googleAds.error = err.message;
+    render();
   }
 }
 
