@@ -358,7 +358,7 @@
     main { padding: 16px; max-width: 100%; }
     h1 { font-size: 18px; }
 
-    .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+    .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
     .metric-card { padding: 14px; }
     .metric-card .value { font-size: 18px; }
 
@@ -380,8 +380,18 @@
     thead th, tbody td { padding: 9px 10px; }
   }
 
-  @media (max-width: 420px) {
-    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 600px) {
+    /* Cards de métrica em 4 colunas no celular, pra caber em só 2 linhas
+       mesmo com 7-8 cards (ex.: Overview do Google Ads), em vez de empilhar
+       em 4+ linhas de 2 colunas. */
+    .metrics-grid {
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 6px !important;
+    }
+    .metrics-grid .metric-card { padding: 8px 6px; border-radius: 5px; }
+    .metrics-grid .metric-card .label { font-size: 8px; margin-bottom: 4px; letter-spacing: 0.03em; line-height: 1.25; }
+    .metrics-grid .metric-card .value { font-size: 13px; }
+    .metrics-grid .metric-card .sub { font-size: 8px; margin-top: 3px; }
   }
 </style>
 </head>
@@ -534,6 +544,7 @@ let state = {
     adGroups: [],
     ads: [],
     recommendations: [],
+    timeSeries: [],
     accountsLoading: false,
     accountsError: null,
     loading: false,
@@ -1161,6 +1172,18 @@ function renderEvolutionCharts() {
         <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px">CTR</p>
         ${buildLineChart(series, { key: "ctr", label: "CTR", color: "#a78bfa", isCurrency: false })}
       </div>
+    </div>`;
+}
+
+function renderGoogleConversionsChart() {
+  const series = state.google.timeSeries;
+  if (!series || series.length === 0) {
+    return `<div class="empty-state" style="padding:40px 20px;margin-bottom:28px"><h3>Série temporal não disponível</h3><p>Não foi possível carregar o histórico diário de conversões para o período selecionado.</p></div>`;
+  }
+  return `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:28px">
+      <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px">Conversões por dia</p>
+      ${buildLineChart(series, { key: "conversions", label: "Conversões", color: "#10ffa3", isCurrency: false })}
     </div>`;
 }
 
@@ -2335,7 +2358,6 @@ function renderGoogleOverview() {
 
   return `
     <h1>Google Ads — Overview</h1>
-    <p class="subtitle">Conta ${esc(accountName)} · ${campaigns.length} campanha(s) · ${state.period.since} · ${state.period.until} · dados via Windsor.ai</p>
 
     <div class="metrics-grid">
       <div class="metric-card"><div class="label">Investimento</div><div class="value">${fmtCurrency(totalSpend)}</div></div>
@@ -2346,6 +2368,8 @@ function renderGoogleOverview() {
       <div class="metric-card"><div class="label">Conversões</div><div class="value">${fmtNum(totalConversions, 1)}</div></div>
       <div class="metric-card"><div class="label">Custo/Conversão</div><div class="value">${fmtCurrency(costPerConversion)}</div></div>
     </div>
+
+    ${renderGoogleConversionsChart()}
 
     <div class="health-score-card-google" style="display:grid;grid-template-columns:220px 1fr;gap:24px;margin:24px 0;align-items:start">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center">
@@ -2700,16 +2724,18 @@ async function loadGoogleAccountData() {
     const params = state.clientMode
       ? { slug: state.clientSlug, since, until }
       : { customerId: state.google.accountId, since, until };
-    const [campaignsRes, adGroupsRes, adsRes, recsRes] = await Promise.all([
+    const [campaignsRes, adGroupsRes, adsRes, recsRes, tsRes] = await Promise.all([
       googleAdsGet("campaigns", params),
       googleAdsGet("adgroups", params),
       googleAdsGet("ads", params),
       googleAdsGet("recommendations", params),
+      googleAdsGet("timeseries", params),
     ]);
     state.google.campaigns = campaignsRes.campaigns || [];
     state.google.adGroups = adGroupsRes.adGroups || [];
     state.google.ads = adsRes.ads || [];
     state.google.recommendations = recsRes.recommendations || [];
+    state.google.timeSeries = tsRes.timeSeries || [];
     state.google.loading = false;
     state.google.loaded = true;
     render();
