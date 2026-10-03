@@ -17,8 +17,49 @@
 // Por isso a chave fica só aqui, como variável de ambiente no servidor:
 //   WINDSOR_API_KEY
 
+const { select } = require("./_supabase");
+
 const CONNECTOR_URL = "https://connectors.windsor.ai/google_ads";
 const ACCOUNTS_URL = "https://onboard.windsor.ai/api/common/ds-accounts";
+
+// Pra links de cliente (?c=<slug>): resolve o slug pra conta Google Ads via o
+// Supabase (tabela public.blue_ads_clients, projeto Assistente-financeiro).
+// O customerId vindo do cliente é sempre ignorado quando um slug é informado,
+// pra ninguém conseguir ver a conta de outro cliente só adulterando a URL.
+async function getClientRecord(slug) {
+  if (!slug) return null;
+  const rows = await select(
+    "blue_ads_clients",
+    `select=name,meta_account_id,google_customer_id,active&slug=eq.${encodeURIComponent(slug)}&limit=1`
+  );
+  const rec = rows[0];
+  if (!rec || rec.active === false) return null;
+  return { name: rec.name, metaAccountId: rec.meta_account_id, googleCustomerId: rec.google_customer_id };
+}
+
+// Em modo cliente (slug presente), em vez de chamar o Windsor ao vivo,
+// lemos os dados já sincronizados no Supabase (public.blue_ads_google_daily,
+// populado por /api/cron/sync-google.js) e agregamos no mesmo formato que o
+// front-end já espera — mesma lógica de soma/razão de aggregate(), só que a
+// partir do banco em vez das linhas cruas do Windsor.
+async function readDailyFromSupabase(slug, level, since, until) {
+  const rows = await select(
+    "blue_ads_google_daily",
+    `select=*&client_slug=eq.${encodeURIComponent(slug)}&level=eq.${level}&date=gte.${since}&date=lte.${until}`
+  );
+  return aggregate(rows.map((r) => ({ ...r, _status: r.status, _strength: r.ad_strength })), "entity_id", (r) => ({
+    id: r.entity_id,
+    name: r.entity_name,
+    adGroupName: r.adgroup_name,
+    campaignName: r.campaign_name,
+    status: r.status,
+    adStrength: r.ad_strength,
+    spend: 0,
+    impressions: 0,
+    clicks: 0,
+    conversions: 0,
+  }));
+}
 
 async function windsorGet(baseUrl, params, apiKey) {
   const url = new URL(baseUrl);
@@ -59,8 +100,50 @@ function aggregate(rows, keyField, buildBase) {
 }
 
 module.exports = async (req, res) => {
-  const { customerId, since, until, resource } = req.query;
+  const { since, until, resource, slug } = req.query;
+  let { customerId } = req.query;
   const { WINDSOR_API_KEY } = process.env;
+
+  if (slug) {
+    let rec;
+    try {
+      rec = await getClientRecord(slug);
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Erro ao consultar o cadastro de clientes." });
+      return;
+    }
+    if (!rec || !rec.googleCustomerId) {
+      res.status(404).json({ error: "Link inválido ou este cliente não tem conta Google Ads configurada." });
+      return;
+    }
+    customerId = rec.googleCustomerId; // ignora qualquer customerId vindo do cliente
+  }
+
+  const kind = resource || "campaigns";
+
+  // ---------- Modo cliente (?c=<slug>): lê do Supabase, nunca do Windsor ao vivo ----------
+  // Cobre só os recursos "performance pura" que o link de cliente usa
+  // (campaigns/adgroups/ads). "recommendations" não é exibido pra clientes
+  // (fica em Recomendações/Andromeda, página só-admin) e "accounts" é só do
+  // seletor de contas do Gio — por isso nenhum dos dois precisa de um
+  // caminho via banco.
+  if (slug && (kind === "campaigns" || kind === "adgroups" || kind === "ads")) {
+    if (!since || !until) {
+      res.status(400).json({ error: "Parâmetros since e until (YYYY-MM-DD) são obrigatórios." });
+      return;
+    }
+    const levelByKind = { campaigns: "campaign", adgroups: "adgroup", ads: "ad" };
+    const resultKeyByKind = { campaigns: "campaigns", adgroups: "adGroups", ads: "ads" };
+    try {
+      const items = (await readDailyFromSupabase(slug, levelByKind[kind], since, until)).sort(
+        (a, b) => b.spend - a.spend
+      );
+      res.status(200).json({ [resultKeyByKind[kind]]: items });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Erro ao consultar dados do Supabase." });
+    }
+    return;
+  }
 
   if (!WINDSOR_API_KEY) {
     res.status(500).json({
@@ -68,8 +151,6 @@ module.exports = async (req, res) => {
     });
     return;
   }
-
-  const kind = resource || "campaigns";
 
   try {
     // ---------- Lista de contas conectadas (não precisa de customerId/datas) ----------
