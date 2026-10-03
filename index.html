@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Meta Performance</title>
+<title>Blue Ads</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -54,6 +54,24 @@
   }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
   .header-controls { display: flex; align-items: center; gap: 10px; }
+
+  .platform-switch {
+    display: flex; align-items: center; gap: 2px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 3px;
+  }
+  .platform-tab {
+    font-family: var(--font-display); font-weight: 600; font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 7px 16px; border-radius: 6px; border: none;
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .platform-tab:hover { color: var(--text-secondary); }
+  .platform-tab.active {
+    background: rgba(34,229,255,0.12); color: var(--cyan);
+    box-shadow: inset 0 0 0 1px rgba(34,229,255,0.3);
+  }
 
   .layout { display: flex; min-height: calc(100vh - 60px); }
   nav.sidebar {
@@ -302,7 +320,8 @@
 <body>
 
 <header>
-  <span class="brand"><span class="pulse"></span>Meta Performance</span>
+  <span class="brand"><span class="pulse"></span>Blue Ads</span>
+  <div class="platform-switch" id="platform-switch"></div>
   <div id="header-controls"></div>
 </header>
 
@@ -312,7 +331,7 @@
 </div>
 
 <script>
-const NAV_GROUPS = [
+const NAV_GROUPS_META = [
   { label: "PERFORMANCE", items: [
     { id: "overview",   label: "Overview" },
     { id: "campanhas",  label: "Campanhas" },
@@ -327,13 +346,33 @@ const NAV_GROUPS = [
   { label: "PLANEJAMENTO", items: [
     { id: "plano",      label: "Plano de ação" },
   ]},
-  { label: "GOOGLE ADS", items: [
-    { id: "google-overview", label: "Overview" },
+  { label: "SISTEMA", items: [
+    { id: "configuracoes", label: "⚙ Configurações" },
+  ]},
+];
+
+const NAV_GROUPS_GOOGLE = [
+  { label: "PERFORMANCE", items: [
+    { id: "g-overview",  label: "Overview" },
+    { id: "g-campanhas", label: "Campanhas" },
+    { id: "g-adgroups",  label: "Grupos de Anúncios" },
+    { id: "g-anuncios",  label: "Anúncios" },
+  ]},
+  { label: "ANÁLISE", items: [
+    { id: "g-benchmark",      label: "Benchmark" },
+    { id: "g-alertas",        label: "Alertas" },
+    { id: "g-recomendacoes",  label: "Recomendações" },
+  ]},
+  { label: "PLANEJAMENTO", items: [
+    { id: "g-plano",    label: "Plano de ação" },
   ]},
   { label: "SISTEMA", items: [
     { id: "configuracoes", label: "⚙ Configurações" },
   ]},
 ];
+
+const META_PAGE_IDS = NAV_GROUPS_META.flatMap(g => g.items.map(i => i.id)).filter(id => id !== "configuracoes");
+const GOOGLE_PAGE_IDS = NAV_GROUPS_GOOGLE.flatMap(g => g.items.map(i => i.id)).filter(id => id !== "configuracoes");
 
 const PERIOD_PRESETS = [
   { id: "7",  label: "Últimos 7 dias",  days: 7  },
@@ -393,6 +432,7 @@ const ACTION_PRIORITY = [
 ];
 
 let state = {
+  platform: localStorage.getItem("blue_ads_platform") || "meta",
   token: localStorage.getItem("meta_perf_token") || "",
   accountId: localStorage.getItem("meta_perf_account") || "",
   period: computePeriod("30"),
@@ -406,14 +446,23 @@ let state = {
   selectedAdId: null,
   loading: false,
   error: null,
-  googleAds: {
-    customerId: localStorage.getItem("meta_perf_google_customer_id") || "",
+  google: {
+    accounts: [],
+    accountId: localStorage.getItem("blue_ads_google_account") || "",
     campaigns: [],
+    adGroups: [],
+    ads: [],
+    recommendations: [],
+    accountsLoading: false,
+    accountsError: null,
     loading: false,
     error: null,
     loaded: false,
   },
 };
+
+if (state.platform === "google" && !GOOGLE_PAGE_IDS.includes(state.currentPage)) state.currentPage = "g-overview";
+if (state.platform === "meta" && !META_PAGE_IDS.includes(state.currentPage) && state.currentPage !== "configuracoes") state.currentPage = "overview";
 
 // ---------- Graph API helpers ----------
 
@@ -433,11 +482,12 @@ async function graphGet(path, params) {
 
 // ---------- Google Ads helpers (via proxy serverless /api/google-ads, dados vindo do Windsor.ai) ----------
 
-async function googleAdsGet(customerId, since, until) {
+async function googleAdsGet(resource, params) {
   const url = new URL("/api/google-ads", window.location.origin);
-  url.searchParams.set("customerId", customerId);
-  url.searchParams.set("since", since);
-  url.searchParams.set("until", until);
+  url.searchParams.set("resource", resource);
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
+  }
   const res = await fetch(url.toString());
   const json = await res.json();
   if (!res.ok || json.error) {
@@ -1050,15 +1100,26 @@ function render() {
   renderMain();
 }
 
-function renderHeader() {
-  const el = document.getElementById("header-controls");
-  if (!state.token) { el.innerHTML = ""; return; }
-  const opts = state.accounts.map(a => `<option value="${a.id}" ${a.id === state.accountId ? "selected" : ""}>${esc(a.name || a.id)}</option>`).join("");
+function renderPlatformSwitch() {
+  return `
+    <button class="platform-tab ${state.platform === "meta" ? "active" : ""}" data-platform="meta" type="button">Meta Ads</button>
+    <button class="platform-tab ${state.platform === "google" ? "active" : ""}" data-platform="google" type="button">Google Ads</button>`;
+}
 
+function switchPlatform(p) {
+  if (state.platform === p) return;
+  state.platform = p;
+  localStorage.setItem("blue_ads_platform", p);
+  if (p === "meta" && !META_PAGE_IDS.includes(state.currentPage)) state.currentPage = "overview";
+  if (p === "google" && !GOOGLE_PAGE_IDS.includes(state.currentPage)) state.currentPage = "g-overview";
+  render();
+  if (p === "google" && state.google.accountId && !state.google.loaded) loadGoogleAccountData();
+}
+
+function periodControlsHtml() {
   const periodOpts = PERIOD_PRESETS.map(p =>
     `<option value="${p.id}" ${state.period.preset === p.id ? "selected" : ""}>${p.label}</option>`
   ).join("");
-
   const customRange = state.period.preset === "custom"
     ? `<div class="period-custom">
         <input type="date" id="since-input" value="${state.period.since}" />
@@ -1067,15 +1128,71 @@ function renderHeader() {
         <button class="secondary" id="apply-custom-range" style="padding:6px 10px">Aplicar</button>
       </div>`
     : "";
+  return `<select id="period-select" class="period-select">${periodOpts}</select>${customRange}`;
+}
 
+function refreshConnectedPlatforms() {
+  if (state.token && state.accountId) loadAccountData();
+  if (state.google.accountId) loadGoogleAccountData();
+}
+
+function bindPeriodControls() {
+  const periodSel = document.getElementById("period-select");
+  if (periodSel) periodSel.onchange = (e) => {
+    state.period = computePeriod(e.target.value);
+    render();
+    if (e.target.value !== "custom") refreshConnectedPlatforms();
+  };
+  const applyBtn = document.getElementById("apply-custom-range");
+  if (applyBtn) applyBtn.onclick = () => {
+    const since = document.getElementById("since-input").value;
+    const until = document.getElementById("until-input").value;
+    if (since && until) {
+      state.period = { preset: "custom", since, until };
+      refreshConnectedPlatforms();
+    }
+  };
+}
+
+function renderHeader() {
+  const psEl = document.getElementById("platform-switch");
+  if (psEl) {
+    psEl.innerHTML = renderPlatformSwitch();
+    psEl.querySelectorAll(".platform-tab").forEach(btn => btn.onclick = () => switchPlatform(btn.dataset.platform));
+  }
+
+  const el = document.getElementById("header-controls");
+
+  if (state.platform === "google") {
+    const ga = state.google;
+    if (ga.accounts.length === 0) { el.innerHTML = ""; return; }
+    const opts = ga.accounts.map(a => `<option value="${a.id}" ${a.id === ga.accountId ? "selected" : ""}>${esc(a.name || a.id)}</option>`).join("");
+    el.innerHTML = `
+      <div class="header-controls">
+        ${periodControlsHtml()}
+        <select id="google-account-select" style="width:220px">${opts}</select>
+      </div>`;
+    const sel = document.getElementById("google-account-select");
+    if (sel) sel.onchange = (e) => {
+      ga.accountId = e.target.value;
+      localStorage.setItem("blue_ads_google_account", ga.accountId);
+      ga.loaded = false;
+      loadGoogleAccountData();
+    };
+    bindPeriodControls();
+    return;
+  }
+
+  // ---- Meta ----
+  if (!state.token) { el.innerHTML = ""; return; }
+  const opts = state.accounts.map(a => `<option value="${a.id}" ${a.id === state.accountId ? "selected" : ""}>${esc(a.name || a.id)}</option>`).join("");
   el.innerHTML = `
     <div class="header-controls">
       <select id="status-scope-select" class="period-select" style="min-width:170px">
         <option value="active" ${state.statusScope === "active" ? "selected" : ""}>Apenas ativas</option>
         <option value="all" ${state.statusScope === "all" ? "selected" : ""}>Todas (inclui pausadas)</option>
       </select>
-      <select id="period-select" class="period-select">${periodOpts}</select>
-      ${customRange}
+      ${periodControlsHtml()}
       <select id="account-select" style="width:220px">${opts || '<option value="">Nenhuma conta</option>'}</select>
     </div>`;
 
@@ -1089,33 +1206,14 @@ function renderHeader() {
   const sel = document.getElementById("account-select");
   if (sel) sel.onchange = (e) => { state.accountId = e.target.value; localStorage.setItem("meta_perf_account", state.accountId); loadAccountData(); };
 
-  const periodSel = document.getElementById("period-select");
-  if (periodSel) periodSel.onchange = (e) => {
-    const preset = e.target.value;
-    state.period = computePeriod(preset);
-    render();
-    if (preset !== "custom") {
-      loadAccountData();
-      if (state.currentPage === "google-overview") loadGoogleAdsData();
-    }
-  };
-
-  const applyBtn = document.getElementById("apply-custom-range");
-  if (applyBtn) applyBtn.onclick = () => {
-    const since = document.getElementById("since-input").value;
-    const until = document.getElementById("until-input").value;
-    if (since && until) {
-      state.period = { preset: "custom", since, until };
-      loadAccountData();
-      if (state.currentPage === "google-overview") loadGoogleAdsData();
-    }
-  };
+  bindPeriodControls();
 }
 
 function renderSidebar() {
   const el = document.getElementById("sidebar");
-  if (!state.token) { el.innerHTML = ""; return; }
-  el.innerHTML = NAV_GROUPS.map(group => `
+  if (state.platform === "meta" && !state.token) { el.innerHTML = ""; return; }
+  const groups = state.platform === "google" ? NAV_GROUPS_GOOGLE : NAV_GROUPS_META;
+  el.innerHTML = groups.map(group => `
     <span class="nav-group-label">${group.label}</span>
     ${group.items.map(item =>
       `<a class="${state.currentPage === item.id ? "active" : ""}" data-page="${item.id}">${item.label}</a>`
@@ -1124,17 +1222,69 @@ function renderSidebar() {
   el.querySelectorAll("a").forEach(a => a.onclick = () => {
     state.currentPage = a.dataset.page;
     render();
-    if (state.currentPage === "google-overview" && !state.googleAds.loaded) loadGoogleAdsData();
   });
+}
+
+function renderGoogleMain(el) {
+  const ga = state.google;
+
+  if (ga.accountsLoading && ga.accounts.length === 0) {
+    el.innerHTML = `<div class="loading">Carregando contas do Google Ads…</div>`;
+    return;
+  }
+
+  if (ga.accountsError && ga.accounts.length === 0) {
+    el.innerHTML = `<div class="empty-state"><h3>Erro ao listar contas do Google Ads</h3><p>${esc(ga.accountsError)}</p><div style="display:flex;gap:10px;justify-content:center;margin-top:16px"><button class="secondary" id="retry-google-accounts-btn">Tentar de novo</button></div></div>`;
+    document.getElementById("retry-google-accounts-btn").onclick = () => loadGoogleAccounts();
+    return;
+  }
+
+  if (ga.accounts.length === 0) {
+    el.innerHTML = `<div class="empty-state"><h3>Nenhuma conta Google Ads conectada</h3><p>Conecte uma conta Google Ads no Windsor.ai para que ela apareça aqui automaticamente.</p></div>`;
+    return;
+  }
+
+  if (!ga.accountId) {
+    el.innerHTML = `<div class="empty-state"><h3>Nenhuma conta selecionada</h3><p>Selecione uma conta no seletor no topo da página.</p></div>`;
+    return;
+  }
+
+  if (ga.loading) { el.innerHTML = `<div class="loading">Carregando dados da conta…</div>`; return; }
+
+  if (ga.error) {
+    el.innerHTML = `<div class="empty-state"><h3>Erro ao consultar o Google Ads (via Windsor.ai)</h3><p>${esc(ga.error)}</p><div style="display:flex;gap:10px;justify-content:center;margin-top:16px"><button class="secondary" id="retry-google-btn">Tentar de novo</button></div></div>`;
+    document.getElementById("retry-google-btn").onclick = () => loadGoogleAccountData();
+    return;
+  }
+
+  const pages = {
+    "g-overview": renderGoogleOverview, "g-campanhas": renderGoogleCampanhas, "g-adgroups": renderGoogleAdGroups,
+    "g-anuncios": renderGoogleAnuncios, "g-benchmark": renderGoogleBenchmark, "g-alertas": renderGoogleAlertas,
+    "g-recomendacoes": renderGoogleRecomendacoes, "g-plano": renderGooglePlano,
+  };
+  el.innerHTML = (pages[state.currentPage] || renderGoogleOverview)();
+  setupTableScrollHints();
 }
 
 function renderMain() {
   const el = document.getElementById("main");
 
+  // Configurações sempre acessível, independente de plataforma, token ou erro
+  if (state.currentPage === "configuracoes") {
+    el.innerHTML = renderConfiguracoes();
+    return;
+  }
+
+  if (state.platform === "google") {
+    renderGoogleMain(el);
+    return;
+  }
+
+  // ---- Meta ----
   if (!state.token) {
     el.innerHTML = `
       <div class="setup-card">
-        <h2>Conectar Meta Performance</h2>
+        <h2>Conectar Meta Ads</h2>
         <p>Cole seu access token da Meta Graph API (gerado no Graph API Explorer, com permissão ads_read). Ele fica salvo só no seu navegador — nunca é enviado a nenhum servidor além da própria Meta.</p>
         <div class="field"><label>Access token</label><input id="token-input" type="password" placeholder="EAA..." /></div>
         <button class="primary" id="connect-btn">Conectar</button>
@@ -1147,12 +1297,6 @@ function renderMain() {
       localStorage.setItem("meta_perf_token", val);
       await bootstrapAccounts();
     };
-    return;
-  }
-
-  // Configurações sempre acessível, independente de token ou erro
-  if (state.currentPage === "configuracoes") {
-    el.innerHTML = renderConfiguracoes();
     return;
   }
 
@@ -1173,8 +1317,7 @@ function renderMain() {
   const pages = {
     overview: renderOverview, campanhas: renderCampanhas, adsets: renderAdSets,
     criativos: renderCriativos, benchmark: renderBenchmark, alertas: renderAlertas,
-    andromeda: renderAndromeda, plano: renderPlano, configuracoes: renderConfiguracoes,
-    "google-overview": renderGoogleOverview,
+    andromeda: renderAndromeda, plano: renderPlano,
   };
   el.innerHTML = (pages[state.currentPage] || renderOverview)();
   setupTableScrollHints();
@@ -1833,46 +1976,31 @@ function renderPlano() {
 
 // ---------- Google Ads (dados via Windsor.ai) ----------
 
-function renderGoogleOverview() {
-  const ga = state.googleAds;
+const BENCHMARK_GOOGLE = {
+  ctr: { min: 3, max: 6 },
+  cpc: { min: 1, max: 3.5 },
+  convRate: { min: 3, max: 8 },
+  searchImpressionShare: { min: 65, max: 100 },
+};
 
-  if (!ga.customerId) {
-    setTimeout(() => {
-      const btn = document.getElementById("go-config-google-btn");
-      if (btn) btn.onclick = () => { state.currentPage = "configuracoes"; render(); };
-    }, 50);
-    return `
-      <h1>Google Ads</h1>
-      <p class="subtitle">Nenhuma conta configurada</p>
-      <div class="empty-state">
-        <h3>Configure a conta do Google Ads</h3>
-        <p>Vá em Configurações e informe o ID da conta Google Ads conectada no Windsor.ai (formato 123-456-7890).</p>
-        <button class="primary" id="go-config-google-btn">Ir para Configurações</button>
-      </div>`;
-  }
+const GOOGLE_STATUS_LABELS = {
+  ENABLED: ["Ativa", "green"], PAUSED: ["Pausada", "slate"], REMOVED: ["Removida", "slate"],
+};
+function googleStatusBadge(status) {
+  const cfg = GOOGLE_STATUS_LABELS[status] || [status || "Não disponível", "slate"];
+  return `<span class="badge ${cfg[1]}"><span class="dot"></span>${cfg[0]}</span>`;
+}
 
-  if (ga.loading) return `<h1>Google Ads</h1><div class="loading">Carregando dados da conta…</div>`;
+const AD_STRENGTH_LABELS = {
+  EXCELLENT: ["Excelente", "green"], GOOD: ["Boa", "green"], AVERAGE: ["Média", "amber"],
+  POOR: ["Fraca", "red"], PENDING: ["Pendente", "slate"], NO_ADS: ["Sem anúncios", "slate"],
+};
+function adStrengthBadge(strength) {
+  const cfg = AD_STRENGTH_LABELS[strength] || [strength || "Não disponível", "slate"];
+  return `<span class="badge ${cfg[1]}"><span class="dot"></span>${cfg[0]}</span>`;
+}
 
-  if (ga.error) {
-    setTimeout(() => {
-      const retry = document.getElementById("retry-google-btn");
-      if (retry) retry.onclick = () => loadGoogleAdsData();
-      const cfg = document.getElementById("go-config-google-btn-err");
-      if (cfg) cfg.onclick = () => { state.currentPage = "configuracoes"; render(); };
-    }, 50);
-    return `<h1>Google Ads</h1><div class="empty-state"><h3>Erro ao consultar o Google Ads (via Windsor.ai)</h3><p>${esc(ga.error)}</p>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
-        <button class="secondary" id="retry-google-btn">Tentar de novo</button>
-        <button class="primary" id="go-config-google-btn-err">Configurações</button>
-      </div></div>`;
-  }
-
-  const { campaigns } = ga;
-  if (campaigns.length === 0) {
-    return `<h1>Google Ads</h1><p class="subtitle">Conta ${esc(ga.customerId)}</p>
-      <div class="empty-state"><h3>Nenhuma campanha encontrada</h3><p>Não há dados de campanhas para o período selecionado.</p></div>`;
-  }
-
+function googleAccountTotals(campaigns) {
   const sum = key => campaigns.reduce((s, c) => s + (c[key] || 0), 0);
   const totalSpend = sum("spend");
   const totalImpressions = sum("impressions");
@@ -1880,24 +2008,147 @@ function renderGoogleOverview() {
   const totalConversions = sum("conversions");
   const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : null;
   const cpc = totalClicks > 0 ? totalSpend / totalClicks : null;
+  const convRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : null;
   const costPerConversion = totalConversions > 0 ? totalSpend / totalConversions : null;
+  return { totalSpend, totalImpressions, totalClicks, totalConversions, ctr, cpc, convRate, costPerConversion };
+}
 
-  const rows = campaigns.map(c => `
-    <tr>
-      <td style="font-weight:500">${esc(c.name)}</td>
-      <td><span class="badge ${c.status === "ENABLED" ? "green" : "slate"}"><span class="dot"></span>${esc(c.status || "Não disponível")}</span></td>
-      <td>${fmtCurrency(c.spend)}</td>
-      <td>${fmtNum(c.impressions)}</td>
-      <td>${fmtNum(c.clicks)}</td>
-      <td>${fmtNum(c.ctr, 2, "%")}</td>
-      <td>${fmtCurrency(c.avgCpc)}</td>
-      <td>${fmtNum(c.conversions, 1)}</td>
-      <td>${c.conversions > 0 ? fmtCurrency(c.spend / c.conversions) : "Não disponível"}</td>
-    </tr>`).join("");
+function googleHealthScore(campaigns, recommendations) {
+  const { ctr, convRate, cpc } = googleAccountTotals(campaigns);
+  const ctrScore = ctr === null ? 50 : Math.min(100, Math.max(0, (ctr / BENCHMARK_GOOGLE.ctr.max) * 100));
+  const convScore = convRate === null ? 50 : Math.min(100, Math.max(0, (convRate / BENCHMARK_GOOGLE.convRate.max) * 100));
+  const cpcScore = cpc === null ? 50 : Math.min(100, Math.max(0, (1 - cpc / (BENCHMARK_GOOGLE.cpc.max * 1.5)) * 100));
+
+  const validOpt = recommendations.filter(r => r.optimizationScore !== null);
+  const avgOpt = validOpt.length ? validOpt.reduce((s, r) => s + r.optimizationScore, 0) / validOpt.length : null;
+  const optScore = avgOpt === null ? 50 : Math.min(100, Math.max(0, avgOpt));
+
+  const validIS = recommendations.filter(r => r.searchImpressionShare !== null);
+  const avgIS = validIS.length ? validIS.reduce((s, r) => s + r.searchImpressionShare, 0) / validIS.length : null;
+  const isScore = avgIS === null ? 50 : Math.min(100, Math.max(0, avgIS));
+
+  const validRankLost = recommendations.filter(r => r.searchRankLostIS !== null);
+  const avgRankLost = validRankLost.length ? validRankLost.reduce((s, r) => s + r.searchRankLostIS, 0) / validRankLost.length : null;
+  const rankScore = avgRankLost === null ? 50 : Math.min(100, Math.max(0, 100 - avgRankLost * 2));
+
+  const score = Math.round(optScore * 0.3 + ctrScore * 0.2 + convScore * 0.15 + cpcScore * 0.1 + isScore * 0.125 + rankScore * 0.125);
+  return {
+    score: Math.min(100, Math.max(0, score)),
+    optScore: Math.round(optScore), ctrScore: Math.round(ctrScore), convScore: Math.round(convScore),
+    cpcScore: Math.round(cpcScore), isScore: Math.round(isScore), rankScore: Math.round(rankScore),
+    avgOpt, avgIS, avgRankLost,
+  };
+}
+
+function diagMessageGoogle(key, score) {
+  const map = {
+    "Otimização":        ["Score de otimização do Google baixo. Aplicar as recomendações da conta.",        "Score de otimização em zona de atenção. Revisar sugestões pendentes.",   "Score de otimização saudável."],
+    "CTR":                ["CTR criticamente baixo. Revisar anúncios e palavras-chave.",                      "CTR abaixo do ideal. Testar novos anúncios e termos de pesquisa.",        "CTR em bom nível."],
+    "Conversão":          ["Taxa de conversão crítica. Revisar páginas de destino e lances.",                 "Taxa de conversão abaixo do ideal. Monitorar e ajustar lances.",          "Taxa de conversão saudável."],
+    "Impression Share":   ["Baixa participação em impressões. Orçamento ou lances limitando o alcance.",      "Participação em impressões em zona de atenção.",                         "Boa participação em impressões de pesquisa."],
+    "Rank Perdido":       ["Alta perda de impressões por rank de anúncio. Melhorar qualidade/lances.",        "Perda de impressões por rank em zona de atenção.",                       "Pouca ou nenhuma perda de impressões por rank."],
+  };
+  const msgs = map[key] || ["", "", ""];
+  return score < 40 ? msgs[0] : score < 70 ? msgs[1] : msgs[2];
+}
+
+function generateGoogleAlerts(campaigns, adGroups, ads, recommendations) {
+  const alerts = [];
+  recommendations.forEach(r => {
+    if (r.optimizationScore !== null && r.optimizationScore < 50) {
+      alerts.push({ level: r.optimizationScore < 30 ? "critico" : "importante",
+        problem: `A campanha "${r.campaignName}" tem optimization score de ${r.optimizationScore.toFixed(0)}, abaixo do recomendado.`,
+        cause: "Existem recomendações do próprio Google Ads pendentes de aplicação para essa campanha.",
+        impact: "Oportunidades de performance (lances, palavras-chave, criativos) estão sendo deixadas na mesa.",
+        recommendation: "Revisar e aplicar as recomendações sugeridas pelo Google Ads para essa campanha." });
+    }
+    if (r.searchBudgetLostIS !== null && r.searchBudgetLostIS > 10) {
+      alerts.push({ level: r.searchBudgetLostIS > 20 ? "critico" : "importante",
+        problem: `A campanha "${r.campaignName}" perde ${r.searchBudgetLostIS.toFixed(1)}% de impression share por orçamento insuficiente.`,
+        cause: "O orçamento diário está limitando a veiculação dos anúncios em leilões elegíveis.",
+        impact: "Cliques e conversões potenciais estão sendo perdidos para concorrentes.",
+        recommendation: r.recommendedBudgetAmount !== null
+          ? `Considerar aumentar o orçamento para aproximadamente ${fmtCurrency(r.recommendedBudgetAmount)}/dia.`
+          : "Avaliar aumento do orçamento diário da campanha." });
+    }
+    if (r.searchRankLostIS !== null && r.searchRankLostIS > 10) {
+      alerts.push({ level: r.searchRankLostIS > 20 ? "critico" : "importante",
+        problem: `A campanha "${r.campaignName}" perde ${r.searchRankLostIS.toFixed(1)}% de impression share por rank do anúncio.`,
+        cause: "Lances e/ou nível de qualidade insuficientes para competir nos leilões elegíveis.",
+        impact: "Anúncios deixam de aparecer mesmo com orçamento disponível, reduzindo volume de resultados.",
+        recommendation: "Revisar lances, relevância dos anúncios e experiência da página de destino." });
+    }
+  });
+  const weakAds = ads.filter(a => a.adStrength === "POOR" || a.adStrength === "AVERAGE");
+  if (weakAds.length > 0) {
+    alerts.push({ level: "oportunidade",
+      problem: `${weakAds.length} anúncio(s) com força classificada como média ou fraca pelo Google Ads.`,
+      cause: "Poucas variações de título/descrição ou baixa relevância com o grupo de anúncios.",
+      impact: "Anúncios mais fracos tendem a receber menos veiculação e CTR mais baixo.",
+      recommendation: "Adicionar mais variações de títulos e descrições para melhorar a força do anúncio." });
+  }
+  if (adGroups.length > 0 && ads.length / adGroups.length < 2) {
+    alerts.push({ level: "oportunidade",
+      problem: `A conta tem em média ${(ads.length / adGroups.length).toFixed(1)} anúncio(s) por grupo de anúncios.`,
+      cause: "Poucas variações de anúncio por grupo limitam o aprendizado do leilão.",
+      impact: "Menor capacidade de encontrar a combinação de anúncio com melhor desempenho.",
+      recommendation: "Adicionar pelo menos 2-3 anúncios por grupo de anúncios." });
+  }
+  if (alerts.length === 0 && campaigns.length > 0) {
+    alerts.push({ level: "oportunidade", problem: "Nenhum problema crítico identificado nos dados coletados.",
+      cause: "Optimization score, impression share e força dos anúncios estão em níveis saudáveis.",
+      impact: "Conta operando de forma estável no período.",
+      recommendation: "Manter monitoramento periódico e revisar recomendações do Google Ads regularmente." });
+  }
+  const order = { critico: 0, importante: 1, oportunidade: 2 };
+  return alerts.sort((a, b) => order[a.level] - order[b.level]);
+}
+
+function renderGoogleOverview() {
+  const { campaigns, recommendations } = state.google;
+  const { totalSpend, totalImpressions, totalClicks, totalConversions, ctr, cpc, costPerConversion } = googleAccountTotals(campaigns);
+  const hs = googleHealthScore(campaigns, recommendations);
+  const overColor = scoreColor(hs.score);
+  const overLabel = overallLabel(hs.score);
+
+  const scoreRows = [
+    { label: "Otimização",      score: hs.optScore },
+    { label: "CTR",             score: hs.ctrScore },
+    { label: "Conversão",       score: hs.convScore },
+    { label: "Impression Share", score: hs.isScore },
+    { label: "Rank Perdido",    score: hs.rankScore },
+  ];
+  const barsHtml = scoreRows.map(({ label, score }) => `
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:10px;color:var(--text-muted);letter-spacing:0.08em;width:110px;flex-shrink:0;text-transform:uppercase">${label}</span>
+      <div class="score-bar-track" style="flex:1">
+        <div class="score-bar-fill ${scoreBarClass(score)}" style="width:${score}%"></div>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:${scoreColor(score)};width:32px;text-align:right;flex-shrink:0">${score}</span>
+    </div>`).join("");
+
+  const diagEntries = [...scoreRows].sort((a, b) => a.score - b.score);
+  const diagHtml = diagEntries.map(({ label, score }) => {
+    const cls = score < 40 ? "diag-critical" : score < 70 ? "diag-warning" : "diag-good";
+    const txtColor = score < 40 ? "var(--red-text)" : score < 70 ? "var(--amber-text)" : "var(--green-text)";
+    const tagBg    = score < 40 ? "var(--red-bg)"   : score < 70 ? "var(--amber-bg)"   : "var(--green-bg)";
+    const tagLabel = score < 40 ? "CRÍTICO"          : score < 70 ? "ATENÇÃO"           : "SAUDÁVEL";
+    return `
+      <div class="${cls}" style="border-radius:6px;padding:14px 16px;display:flex;align-items:center;gap:16px">
+        <div style="flex:1">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${label}</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${score}/100</span>
+          <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;line-height:1.4">${diagMessageGoogle(label, score)}</p>
+        </div>
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;color:${txtColor};padding:3px 8px;background:${tagBg};border-radius:3px;white-space:nowrap">${tagLabel}</span>
+      </div>`;
+  }).join("");
+
+  const accountName = (state.google.accounts.find(a => a.id === state.google.accountId) || {}).name || state.google.accountId;
 
   return `
     <h1>Google Ads — Overview</h1>
-    <p class="subtitle">Conta ${esc(ga.customerId)} · ${campaigns.length} campanha(s) · ${state.period.since} · ${state.period.until} · dados via Windsor.ai</p>
+    <p class="subtitle">Conta ${esc(accountName)} · ${campaigns.length} campanha(s) · ${state.period.since} · ${state.period.until} · dados via Windsor.ai</p>
 
     <div class="metrics-grid">
       <div class="metric-card"><div class="label">Investimento</div><div class="value">${fmtCurrency(totalSpend)}</div></div>
@@ -1909,13 +2160,217 @@ function renderGoogleOverview() {
       <div class="metric-card"><div class="label">Custo/Conversão</div><div class="value">${fmtCurrency(costPerConversion)}</div></div>
     </div>
 
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Campanha</th><th>Status</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC médio</th><th>Conversões</th><th>Custo/Conversão</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+    <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;margin:24px 0;align-items:start">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center">
+        <p style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px">Health Score</p>
+        <div style="font-size:40px;font-weight:700;color:${overColor};font-family:var(--font-display)">${hs.score}</div>
+        <p style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:${overColor};margin:4px 0 0">${overLabel}</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:10px;justify-content:center">
+        ${barsHtml}
+      </div>
     </div>
+
+    <p style="font-size:10px;font-weight:700;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin:24px 0 12px">Diagnóstico</p>
+    <div style="display:flex;flex-direction:column;gap:10px">${diagHtml}</div>`;
+}
+
+function renderGoogleCampanhas() {
+  const { campaigns } = state.google;
+  if (campaigns.length === 0) return `<h1>Campanhas</h1><div class="empty-state"><h3>Nenhuma campanha encontrada</h3><p>Não há campanhas para esta conta e período.</p></div>`;
+  const rows = campaigns.map(c => `
+    <tr>
+      <td style="font-weight:500">${esc(c.name)}</td>
+      <td>${googleStatusBadge(c.status)}</td>
+      <td>${fmtCurrency(c.spend)}</td>
+      <td>${fmtNum(c.impressions)}</td>
+      <td>${fmtNum(c.clicks)}</td>
+      <td>${fmtNum(c.ctr, 2, "%")}</td>
+      <td>${fmtCurrency(c.avgCpc)}</td>
+      <td>${fmtNum(c.conversions, 1)}</td>
+      <td>${c.conversions > 0 ? fmtCurrency(c.spend / c.conversions) : "Não disponível"}</td>
+    </tr>`).join("");
+  return `<h1>Campanhas</h1><p class="subtitle">${campaigns.length} campanha(s) · dados via Windsor.ai</p>
+    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC médio</th><th>Conversões</th><th>Custo/Conversão</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
+}
+
+function renderGoogleAdGroups() {
+  const { adGroups } = state.google;
+  if (adGroups.length === 0) return `<h1>Grupos de Anúncios</h1><div class="empty-state"><h3>Nenhum grupo de anúncios encontrado</h3><p>Não há dados para esta conta e período.</p></div>`;
+  const rows = adGroups.map(a => `
+    <tr>
+      <td style="font-weight:500">${esc(a.name)}</td>
+      <td>${esc(a.campaignName)}</td>
+      <td>${googleStatusBadge(a.status)}</td>
+      <td>${fmtCurrency(a.spend)}</td>
+      <td>${fmtNum(a.impressions)}</td>
+      <td>${fmtNum(a.clicks)}</td>
+      <td>${fmtNum(a.ctr, 2, "%")}</td>
+      <td>${fmtCurrency(a.avgCpc)}</td>
+      <td>${fmtNum(a.conversions, 1)}</td>
+    </tr>`).join("");
+  return `<h1>Grupos de Anúncios</h1><p class="subtitle">${adGroups.length} grupo(s) de anúncios · dados via Windsor.ai</p>
+    <div class="table-wrap"><table><thead><tr><th>Grupo de anúncios</th><th>Campanha</th><th>Status</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC médio</th><th>Conversões</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
+}
+
+function renderGoogleAnuncios() {
+  const { ads } = state.google;
+  if (ads.length === 0) return `<h1>Anúncios</h1><div class="empty-state"><h3>Nenhum anúncio encontrado</h3><p>Não há dados para esta conta e período.</p></div>`;
+  const rows = ads.map(a => `
+    <tr>
+      <td style="font-weight:500">${esc(a.adGroupName)}</td>
+      <td>${esc(a.campaignName)}</td>
+      <td>${googleStatusBadge(a.status)}</td>
+      <td>${adStrengthBadge(a.adStrength)}</td>
+      <td>${fmtCurrency(a.spend)}</td>
+      <td>${fmtNum(a.impressions)}</td>
+      <td>${fmtNum(a.clicks)}</td>
+      <td>${fmtNum(a.ctr, 2, "%")}</td>
+      <td>${fmtNum(a.conversions, 1)}</td>
+    </tr>`).join("");
+  return `<h1>Anúncios</h1><p class="subtitle">${ads.length} anúncio(s) · dados via Windsor.ai</p>
+    <div class="table-wrap"><table><thead><tr><th>Grupo de anúncios</th><th>Campanha</th><th>Status</th><th>Força do anúncio</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Conversões</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="scroll-nudge">→ role para o lado para ver mais colunas</p>
+    <p style="font-size:12px;color:var(--text-muted);margin-top:14px">Alguns anúncios podem não exibir títulos/descrições individuais dependendo do tipo de anúncio da conta (ex.: anúncios de texto expandido legados).</p>`;
+}
+
+function renderGoogleBenchmark() {
+  const { campaigns } = state.google;
+  const { ctr, cpc, convRate } = googleAccountTotals(campaigns);
+  const comps = [
+    { label: "CTR", value: ctr, min: BENCHMARK_GOOGLE.ctr.min, max: BENCHMARK_GOOGLE.ctr.max, lowerBetter: false, isPct: true },
+    { label: "CPC médio", value: cpc, min: BENCHMARK_GOOGLE.cpc.min, max: BENCHMARK_GOOGLE.cpc.max, lowerBetter: true, isPct: false },
+    { label: "Taxa de conversão", value: convRate, min: BENCHMARK_GOOGLE.convRate.min, max: BENCHMARK_GOOGLE.convRate.max, lowerBetter: false, isPct: true },
+  ];
+  const cards = comps.map(c => {
+    const status = classifyRange(c.value, c.min, c.max, c.lowerBetter);
+    const cfg = { green: ["Melhor que o mercado", "green"], amber: ["Próximo do limite", "amber"], red: ["Fora do benchmark", "red"], unknown: ["Benchmark não encontrado", "slate"] }[status];
+    const diff = c.value !== null ? (((c.value - (c.lowerBetter ? c.max : c.min)) / (c.lowerBetter ? c.max : c.min)) * 100) : null;
+    const interpretation = c.value === null ? "Dado não disponível na resposta da API." :
+      status === "green" ? "Dentro ou melhor que a faixa de benchmark de referência." :
+      status === "red" ? "Fora do benchmark — isso pode estar pressionando o custo final por conversão." :
+      "Próximo do limite — vale monitorar nos próximos dias.";
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <b style="font-size:13px">${c.label}</b><span class="badge ${cfg[1]}"><span class="dot"></span>${cfg[0]}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font-size:13px;margin-bottom:10px">
+        <div><div style="font-size:11px;color:var(--text-muted)">Sua conta</div><b>${c.isPct ? fmtNum(c.value,2,"%") : fmtCurrency(c.value)}</b></div>
+        <div><div style="font-size:11px;color:var(--text-muted)">Benchmark</div><b>${c.isPct ? `${c.min}–${c.max}%` : `${fmtCurrency(c.min)} – ${fmtCurrency(c.max)}`}</b></div>
+        <div><div style="font-size:11px;color:var(--text-muted)">Diferença</div><b>${diff !== null ? `${diff > 0 ? "+" : ""}${diff.toFixed(0)}%` : "Não disponível"}</b></div>
+      </div>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0">${interpretation}</p>
+    </div>`;
+  }).join("");
+  return `<h1>Benchmark — Cliente × Mercado</h1><p class="subtitle">Referência genérica, Google Search, 2026</p>${cards}`;
+}
+
+function renderGoogleAlertas() {
+  const { campaigns, adGroups, ads, recommendations } = state.google;
+  const alerts = generateGoogleAlerts(campaigns, adGroups, ads, recommendations);
+  const groups = { critico: [], importante: [], oportunidade: [] };
+  alerts.forEach(a => groups[a.level].push(a));
+  const labels = { critico: "Crítico", importante: "Importante", oportunidade: "Oportunidade" };
+  const icons = { critico: "\u{1F534}", importante: "\u{1F7E1}", oportunidade: "\u{1F7E2}" };
+  const sections = Object.keys(groups).map(level => {
+    const items = groups[level].map(a => `
+      <div class="alert-card ${level}">
+        <span class="level">${icons[level]} ${labels[level]}</span>
+        <p class="problem">${esc(a.problem)}</p>
+        <dl>
+          <div><b>Causa:</b> ${esc(a.cause)}</div>
+          <div><b>Impacto:</b> ${esc(a.impact)}</div>
+          <div><b>Recomendação:</b> ${esc(a.recommendation)}</div>
+        </dl>
+      </div>`).join("");
+    return `<div class="section"><h2>${labels[level]} (${groups[level].length})</h2>${items || '<p style="font-size:13px;color:var(--text-muted)">Nenhum alerta neste nível.</p>'}</div>`;
+  }).join("");
+  return `<h1>Central de alertas</h1><p class="subtitle">${alerts.length} alerta(s) identificado(s)</p>${sections}`;
+}
+
+function renderGoogleRecomendacoes() {
+  const { recommendations } = state.google;
+  if (recommendations.length === 0) {
+    return `<h1>Recomendações</h1><p class="subtitle">Sugestões do próprio Google Ads</p><div class="empty-state"><h3>Nenhuma recomendação disponível</h3><p>Não há dados de otimização para esta conta e período.</p></div>`;
+  }
+
+  const validOpt = recommendations.filter(r => r.optimizationScore !== null);
+  const avgOpt = validOpt.length ? validOpt.reduce((s, r) => s + r.optimizationScore, 0) / validOpt.length : null;
+  const budgetCandidates = recommendations.filter(r => r.hasRecommendedBudget);
+  const rankLostCandidates = recommendations.filter(r => r.searchRankLostIS !== null && r.searchRankLostIS > 10).sort((a,b) => b.searchRankLostIS - a.searchRankLostIS);
+  const budgetLostCandidates = recommendations.filter(r => r.searchBudgetLostIS !== null && r.searchBudgetLostIS > 10).sort((a,b) => b.searchBudgetLostIS - a.searchBudgetLostIS);
+
+  const cardStyle = `background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:12px`;
+
+  const budgetCards = budgetCandidates.map(r => `
+    <div style="${cardStyle}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <b style="font-size:13px">💰 Aumentar orçamento — ${esc(r.campaignName)}</b>
+      </div>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 6px">Orçamento diário recomendado pelo Google Ads: <b style="color:var(--text)">${fmtCurrency(r.recommendedBudgetAmount)}</b></p>
+      ${r.estimatedWeeklyClicksGain !== null ? `<p style="font-size:12px;color:var(--text-muted);margin:0">Ganho estimado: +${fmtNum(r.estimatedWeeklyClicksGain)} cliques/semana</p>` : ""}
+    </div>`).join("");
+
+  const rankCards = rankLostCandidates.map(r => `
+    <div style="${cardStyle}">
+      <b style="font-size:13px">📉 Melhorar Ad Rank — ${esc(r.campaignName)}</b>
+      <p style="font-size:13px;color:var(--text-secondary);margin:6px 0 0">Perdendo <b style="color:var(--amber-text)">${r.searchRankLostIS.toFixed(1)}%</b> de impression share por rank do anúncio. Revisar lances e relevância.</p>
+    </div>`).join("");
+
+  const budgetLostCards = budgetLostCandidates.map(r => `
+    <div style="${cardStyle}">
+      <b style="font-size:13px">🚧 Orçamento limitando impressões — ${esc(r.campaignName)}</b>
+      <p style="font-size:13px;color:var(--text-secondary);margin:6px 0 0">Perdendo <b style="color:var(--red-text)">${r.searchBudgetLostIS.toFixed(1)}%</b> de impression share por orçamento.</p>
+    </div>`).join("");
+
+  const lowOptCards = recommendations
+    .filter(r => r.optimizationScore !== null && r.optimizationScore < 60)
+    .sort((a,b) => a.optimizationScore - b.optimizationScore)
+    .map(r => `
+    <div style="${cardStyle}">
+      <b style="font-size:13px">⚙ Revisar otimização — ${esc(r.campaignName)}</b>
+      <p style="font-size:13px;color:var(--text-secondary);margin:6px 0 0">Optimization score de <b style="color:${scoreColor(r.optimizationScore)}">${r.optimizationScore.toFixed(0)}</b>. Acesse o Google Ads para aplicar as recomendações específicas dessa campanha.</p>
+    </div>`).join("");
+
+  const section = (title, html) => html ? `<p style="font-size:10px;font-weight:700;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin:24px 0 12px">${title}</p>${html}` : "";
+
+  return `
+    <h1>Recomendações</h1>
+    <p class="subtitle">Sugestões geradas a partir dos sinais de otimização do próprio Google Ads</p>
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="label">Optimization Score médio</div><div class="value" style="color:${avgOpt !== null ? scoreColor(avgOpt) : 'var(--text)'}">${avgOpt !== null ? avgOpt.toFixed(0) : "Não disponível"}</div></div>
+      <div class="metric-card"><div class="label">Campanhas c/ orçamento sugerido</div><div class="value">${budgetCandidates.length}</div></div>
+      <div class="metric-card"><div class="label">Campanhas perdendo IS por rank</div><div class="value">${rankLostCandidates.length}</div></div>
+      <div class="metric-card"><div class="label">Campanhas perdendo IS por orçamento</div><div class="value">${budgetLostCandidates.length}</div></div>
+    </div>
+    ${section("Orçamento", budgetCards)}
+    ${section("Ad rank / Lances", rankCards)}
+    ${section("Orçamento limitando impressões", budgetLostCards)}
+    ${section("Otimização geral", lowOptCards)}
+    ${!budgetCards && !rankCards && !budgetLostCards && !lowOptCards ? `<div class="empty-state"><h3>Nenhuma recomendação pendente</h3><p>As campanhas estão com bons indicadores de otimização no momento.</p></div>` : ""}`;
+}
+
+function renderGooglePlano() {
+  const { campaigns, adGroups, ads, recommendations } = state.google;
+  const alerts = generateGoogleAlerts(campaigns, adGroups, ads, recommendations);
+  const items = alerts.map((a, i) => ({ ...a, order: i + 1 }));
+  const icons = { critico: "\u{1F534}", importante: "\u{1F7E1}", oportunidade: "\u{1F7E2}" };
+  const labels = { critico: "Crítico", importante: "Importante", oportunidade: "Oportunidade" };
+  const cards = items.map(item => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--text-muted);font-family:monospace">${String(item.order).padStart(2,"0")}</span>
+        <span>${icons[item.level]}</span>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase">${labels[item.level]}</span>
+      </div>
+      <p style="font-weight:600;font-size:13px;margin:6px 0">${esc(item.problem)}</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:4px 0"><b style="color:var(--text)">Causa:</b> ${esc(item.cause)}</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:4px 0"><b style="color:var(--text)">Impacto:</b> ${esc(item.impact)}</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:4px 0"><b style="color:var(--text)">Ação recomendada:</b> ${esc(item.recommendation)}</p>
+    </div>`).join("");
+  return `<h1>Plano de ação</h1><p class="subtitle">${items.length} ação(ões) priorizada(s)</p>${cards}`;
 }
 
 function renderConfiguracoes() {
@@ -1954,29 +2409,19 @@ function renderConfiguracoes() {
       render();
     };
 
-    const saveGoogleBtn = document.getElementById("save-google-customer-btn");
-    const googleInput = document.getElementById("google-customer-id-input");
-    const disconnectGoogleBtn = document.getElementById("disconnect-google-btn");
-
-    if (saveGoogleBtn) saveGoogleBtn.onclick = async () => {
-      const val = googleInput?.value.trim();
-      if (!val) return;
-      saveGoogleBtn.textContent = "Salvando…";
-      saveGoogleBtn.disabled = true;
-      state.googleAds.customerId = val;
-      state.googleAds.loaded = false;
-      localStorage.setItem("meta_perf_google_customer_id", val);
-      state.currentPage = "google-overview";
-      await loadGoogleAdsData();
+    const reloadGoogleBtn = document.getElementById("reload-google-accounts-btn");
+    if (reloadGoogleBtn) reloadGoogleBtn.onclick = async () => {
+      reloadGoogleBtn.textContent = "Carregando…";
+      reloadGoogleBtn.disabled = true;
+      await loadGoogleAccounts();
     };
 
-    if (disconnectGoogleBtn) disconnectGoogleBtn.onclick = () => {
-      state.googleAds.customerId = "";
-      state.googleAds.campaigns = [];
-      state.googleAds.loaded = false;
-      state.googleAds.error = null;
-      localStorage.removeItem("meta_perf_google_customer_id");
-      render();
+    const googleAccountSelectCfg = document.getElementById("google-account-select-cfg");
+    if (googleAccountSelectCfg) googleAccountSelectCfg.onchange = (e) => {
+      state.google.accountId = e.target.value;
+      localStorage.setItem("blue_ads_google_account", state.google.accountId);
+      state.google.loaded = false;
+      loadGoogleAccountData();
     };
   }, 50);
 
@@ -2011,21 +2456,17 @@ function renderConfiguracoes() {
 
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px">
         <p style="font-size:10px;font-weight:600;color:var(--cyan-dim);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 6px">Google Ads (via Windsor.ai)</p>
-        <p style="font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);margin:0 0 18px;word-break:break-all">${state.googleAds.customerId ? esc(state.googleAds.customerId) : "Nenhuma conta configurada"}</p>
-
-        <p style="font-size:10px;font-weight:600;color:var(--cyan-dim);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 6px">ID da conta Google Ads</p>
-        <input
-          id="google-customer-id-input"
-          type="text"
-          placeholder="123-456-7890"
-          value="${esc(state.googleAds.customerId)}"
-          style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font-mono);background:var(--bg);color:var(--text);margin-bottom:12px"
-        />
-        <button id="save-google-customer-btn" class="primary" style="width:100%;margin-bottom:10px">Salvar conta</button>
-        ${state.googleAds.customerId ? `<button id="disconnect-google-btn" class="secondary" style="width:100%;border-color:rgba(255,59,92,0.4);color:var(--red-text)">Remover conta Google Ads</button>` : ""}
-        <p style="font-size:11px;color:var(--text-muted);margin:10px 0 0;line-height:1.5">
-          É o ID da conta Google Ads como aparece conectada no Windsor.ai (ex: 123-456-7890). A chave de API do Windsor fica configurada no servidor (Vercel), não aqui.
+        <p style="font-size:12px;color:var(--text-secondary);margin:0 0 14px;line-height:1.5">
+          As contas de Google Ads conectadas no Windsor.ai aparecem aqui automaticamente — não é preciso informar nenhum ID manualmente. A chave de API do Windsor fica configurada no servidor (Vercel), não aqui.
         </p>
+        ${state.google.accountsError ? `<p style="font-size:12px;color:var(--red-text);margin:0 0 12px">${esc(state.google.accountsError)}</p>` : ""}
+        ${state.google.accounts.length > 0 ? `
+          <p style="font-size:10px;font-weight:600;color:var(--cyan-dim);letter-spacing:0.08em;text-transform:uppercase;margin:0 0 6px">Conta ativa</p>
+          <select id="google-account-select-cfg" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font-mono);background:var(--bg);color:var(--text);margin-bottom:12px">
+            ${state.google.accounts.map(a => `<option value="${a.id}" ${a.id === state.google.accountId ? "selected" : ""}>${esc(a.name || a.id)}</option>`).join("")}
+          </select>
+        ` : `<p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">${state.google.accountsLoading ? "Carregando contas…" : "Nenhuma conta Google Ads encontrada no Windsor.ai."}</p>`}
+        <button id="reload-google-accounts-btn" class="secondary" style="width:100%">Recarregar contas</button>
       </div>
 
     </div>`;
@@ -2045,19 +2486,47 @@ async function bootstrapAccounts() {
   }
 }
 
-async function loadGoogleAdsData() {
-  if (!state.googleAds.customerId) { render(); return; }
-  state.googleAds.loading = true; state.googleAds.error = null; render();
+async function loadGoogleAccounts() {
+  state.google.accountsLoading = true; state.google.accountsError = null; render();
+  try {
+    const data = await googleAdsGet("accounts", {});
+    state.google.accounts = data.accounts || [];
+    state.google.accountsLoading = false;
+    if (!state.google.accountId && state.google.accounts.length > 0) {
+      state.google.accountId = state.google.accounts[0].id;
+      localStorage.setItem("blue_ads_google_account", state.google.accountId);
+    }
+    render();
+    if (state.google.accountId) await loadGoogleAccountData();
+  } catch (err) {
+    state.google.accountsLoading = false;
+    state.google.accountsError = err.message;
+    render();
+  }
+}
+
+async function loadGoogleAccountData() {
+  if (!state.google.accountId) { render(); return; }
+  state.google.loading = true; state.google.error = null; render();
   try {
     const { since, until } = state.period;
-    const data = await googleAdsGet(state.googleAds.customerId, since, until);
-    state.googleAds.campaigns = data.campaigns || [];
-    state.googleAds.loading = false;
-    state.googleAds.loaded = true;
+    const params = { customerId: state.google.accountId, since, until };
+    const [campaignsRes, adGroupsRes, adsRes, recsRes] = await Promise.all([
+      googleAdsGet("campaigns", params),
+      googleAdsGet("adgroups", params),
+      googleAdsGet("ads", params),
+      googleAdsGet("recommendations", params),
+    ]);
+    state.google.campaigns = campaignsRes.campaigns || [];
+    state.google.adGroups = adGroupsRes.adGroups || [];
+    state.google.ads = adsRes.ads || [];
+    state.google.recommendations = recsRes.recommendations || [];
+    state.google.loading = false;
+    state.google.loaded = true;
     render();
   } catch (err) {
-    state.googleAds.loading = false;
-    state.googleAds.error = err.message;
+    state.google.loading = false;
+    state.google.error = err.message;
     render();
   }
 }
@@ -2076,8 +2545,12 @@ async function loadAccountData() {
 }
 
 (async function init() {
-  if (state.token) { await bootstrapAccounts(); }
-  else { render(); }
+  render();
+  const tasks = [];
+  if (state.token) tasks.push(bootstrapAccounts());
+  tasks.push(loadGoogleAccounts());
+  await Promise.all(tasks);
+  render();
 })();
 </script>
 </body>
