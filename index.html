@@ -431,6 +431,13 @@ const ACTION_PRIORITY = [
   "post_engagement",
 ];
 
+// ---------- Modo cliente (links somente-leitura, sem token) ----------
+// Um link como blue-ads.../?c=<slug> ativa o "modo cliente": o front-end
+// nunca pede token, nunca mostra o seletor de contas/Configurações, e busca
+// os dados através dos proxies server-side (/api/meta-ads, /api/google-ads),
+// que resolvem o slug pra conta certa sem expor nada sensível ao navegador.
+const CLIENT_SLUG = new URLSearchParams(window.location.search).get("c");
+
 let state = {
   platform: localStorage.getItem("blue_ads_platform") || "meta",
   token: localStorage.getItem("meta_perf_token") || "",
@@ -446,6 +453,12 @@ let state = {
   selectedAdId: null,
   loading: false,
   error: null,
+  clientMode: !!CLIENT_SLUG,
+  clientSlug: CLIENT_SLUG,
+  clientName: "",
+  clientHasMeta: false,
+  clientHasGoogle: false,
+  clientError: null,
   google: {
     accounts: [],
     accountId: localStorage.getItem("blue_ads_google_account") || "",
@@ -461,12 +474,39 @@ let state = {
   },
 };
 
-if (state.platform === "google" && !GOOGLE_PAGE_IDS.includes(state.currentPage)) state.currentPage = "g-overview";
-if (state.platform === "meta" && !META_PAGE_IDS.includes(state.currentPage) && state.currentPage !== "configuracoes") state.currentPage = "overview";
+function syncCurrentPageToPlatform() {
+  if (state.platform === "google" && !GOOGLE_PAGE_IDS.includes(state.currentPage)) state.currentPage = "g-overview";
+  if (state.platform === "meta" && !META_PAGE_IDS.includes(state.currentPage) && state.currentPage !== "configuracoes") state.currentPage = "overview";
+}
+syncCurrentPageToPlatform();
 
 // ---------- Graph API helpers ----------
 
 async function graphGet(path, params) {
+  if (state.clientMode) {
+    // Em modo cliente, o token nunca sai do servidor: path vem como
+    // `/${accountId}/campaigns` (igual ao modo admin) e aqui só extraímos o
+    // nome do endpoint pra mandar pro proxy, que resolve o slug -> conta.
+    const endpoint = path === `/${state.accountId}` ? "self" : path.replace(`/${state.accountId}/`, "");
+    const url = new URL("/api/meta-ads", window.location.origin);
+    url.searchParams.set("slug", state.clientSlug);
+    url.searchParams.set("endpoint", endpoint);
+    // O período vai sempre explícito aqui (em vez de depender do que está
+    // embutido dentro do parâmetro "fields"), porque o proxy agora lê do
+    // Supabase e precisa de since/until como parâmetros próprios pra
+    // agregar os dados diários do período certo.
+    url.searchParams.set("since", state.period.since);
+    url.searchParams.set("until", state.period.until);
+    for (const [k, v] of Object.entries(params || {})) {
+      if (v !== undefined) url.searchParams.set(k, v);
+    }
+    const res = await fetch(url.toString());
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      throw new Error(json?.error || `Erro no proxy do Meta (${res.status})`);
+    }
+    return json;
+  }
   const url = new URL(`https://graph.facebook.com/v21.0${path}`);
   url.searchParams.set("access_token", state.token);
   for (const [k, v] of Object.entries(params || {})) {
@@ -527,7 +567,12 @@ function primaryResult(insight) {
 
 function normalizeMetrics(insight) {
   if (!insight) return { spend: null, impressions: null, reach: null, cpm: null, ctr: null, cpc: null, frequency: null, results: null, costPerResult: null, resultType: null };
-  const { results, costPerResult, resultType } = primaryResult(insight);
+  // Dados vindos do Supabase (links de cliente) já chegam com o resultado
+  // principal pronto, calculado na sincronização — não precisam passar
+  // pela lógica de `actions` (que só existe numa resposta real da Graph
+  // API). Esse campo nunca aparece numa resposta ao vivo, então o modo
+  // admin não é afetado.
+  const { results, costPerResult, resultType } = insight.__synthetic_result__ || primaryResult(insight);
   return {
     spend: toNum(insight.spend), impressions: toNum(insight.impressions), reach: toNum(insight.reach),
     cpm: toNum(insight.cpm), ctr: toNum(insight.ctr), cpc: toNum(insight.cpc), frequency: toNum(insight.frequency),
@@ -1156,12 +1201,31 @@ function bindPeriodControls() {
 
 function renderHeader() {
   const psEl = document.getElementById("platform-switch");
+  const el = document.getElementById("header-controls");
+
+  if (state.clientMode) {
+    if (psEl) {
+      if (state.clientHasMeta && state.clientHasGoogle) {
+        psEl.innerHTML = renderPlatformSwitch();
+        psEl.querySelectorAll(".platform-tab").forEach(btn => btn.onclick = () => switchPlatform(btn.dataset.platform));
+      } else {
+        psEl.innerHTML = "";
+      }
+    }
+    if (state.clientError) { el.innerHTML = ""; return; }
+    el.innerHTML = `
+      <div class="header-controls">
+        ${periodControlsHtml()}
+        <span style="font-size:12px;color:var(--text-secondary);padding:0 6px;white-space:nowrap">${esc(state.clientName)}</span>
+      </div>`;
+    bindPeriodControls();
+    return;
+  }
+
   if (psEl) {
     psEl.innerHTML = renderPlatformSwitch();
     psEl.querySelectorAll(".platform-tab").forEach(btn => btn.onclick = () => switchPlatform(btn.dataset.platform));
   }
-
-  const el = document.getElementById("header-controls");
 
   if (state.platform === "google") {
     const ga = state.google;
@@ -1209,8 +1273,31 @@ function renderHeader() {
   bindPeriodControls();
 }
 
+// Em links de cliente, só as páginas de performance pura ficam visíveis —
+// alertas, recomendações e plano de ação têm linguagem interna (ex.: apontar
+// criativo "perdedor") que não é pra um cliente final ver.
+const CLIENT_HIDDEN_PAGE_IDS = new Set(["alertas", "andromeda", "plano", "g-alertas", "g-recomendacoes", "g-plano", "configuracoes"]);
+
+function clientSafeGroups(groups) {
+  return groups
+    .map(g => ({ ...g, items: g.items.filter(i => !CLIENT_HIDDEN_PAGE_IDS.has(i.id)) }))
+    .filter(g => g.items.length > 0);
+}
+
 function renderSidebar() {
   const el = document.getElementById("sidebar");
+  if (state.clientMode) {
+    if (state.clientError) { el.innerHTML = ""; return; }
+    const groups = clientSafeGroups(state.platform === "google" ? NAV_GROUPS_GOOGLE : NAV_GROUPS_META);
+    el.innerHTML = groups.map(group => `
+      <span class="nav-group-label">${group.label}</span>
+      ${group.items.map(item =>
+        `<a class="${state.currentPage === item.id ? "active" : ""}" data-page="${item.id}">${item.label}</a>`
+      ).join("")}
+    `).join("");
+    el.querySelectorAll("a").forEach(a => a.onclick = () => { state.currentPage = a.dataset.page; render(); });
+    return;
+  }
   if (state.platform === "meta" && !state.token) { el.innerHTML = ""; return; }
   const groups = state.platform === "google" ? NAV_GROUPS_GOOGLE : NAV_GROUPS_META;
   el.innerHTML = groups.map(group => `
@@ -1228,20 +1315,22 @@ function renderSidebar() {
 function renderGoogleMain(el) {
   const ga = state.google;
 
-  if (ga.accountsLoading && ga.accounts.length === 0) {
-    el.innerHTML = `<div class="loading">Carregando contas do Google Ads…</div>`;
-    return;
-  }
+  if (!state.clientMode) {
+    if (ga.accountsLoading && ga.accounts.length === 0) {
+      el.innerHTML = `<div class="loading">Carregando contas do Google Ads…</div>`;
+      return;
+    }
 
-  if (ga.accountsError && ga.accounts.length === 0) {
-    el.innerHTML = `<div class="empty-state"><h3>Erro ao listar contas do Google Ads</h3><p>${esc(ga.accountsError)}</p><div style="display:flex;gap:10px;justify-content:center;margin-top:16px"><button class="secondary" id="retry-google-accounts-btn">Tentar de novo</button></div></div>`;
-    document.getElementById("retry-google-accounts-btn").onclick = () => loadGoogleAccounts();
-    return;
-  }
+    if (ga.accountsError && ga.accounts.length === 0) {
+      el.innerHTML = `<div class="empty-state"><h3>Erro ao listar contas do Google Ads</h3><p>${esc(ga.accountsError)}</p><div style="display:flex;gap:10px;justify-content:center;margin-top:16px"><button class="secondary" id="retry-google-accounts-btn">Tentar de novo</button></div></div>`;
+      document.getElementById("retry-google-accounts-btn").onclick = () => loadGoogleAccounts();
+      return;
+    }
 
-  if (ga.accounts.length === 0) {
-    el.innerHTML = `<div class="empty-state"><h3>Nenhuma conta Google Ads conectada</h3><p>Conecte uma conta Google Ads no Windsor.ai para que ela apareça aqui automaticamente.</p></div>`;
-    return;
+    if (ga.accounts.length === 0) {
+      el.innerHTML = `<div class="empty-state"><h3>Nenhuma conta Google Ads conectada</h3><p>Conecte uma conta Google Ads no Windsor.ai para que ela apareça aqui automaticamente.</p></div>`;
+      return;
+    }
   }
 
   if (!ga.accountId) {
@@ -1262,12 +1351,36 @@ function renderGoogleMain(el) {
     "g-anuncios": renderGoogleAnuncios, "g-benchmark": renderGoogleBenchmark, "g-alertas": renderGoogleAlertas,
     "g-recomendacoes": renderGoogleRecomendacoes, "g-plano": renderGooglePlano,
   };
+  if (state.clientMode) { delete pages["g-alertas"]; delete pages["g-recomendacoes"]; delete pages["g-plano"]; }
   el.innerHTML = (pages[state.currentPage] || renderGoogleOverview)();
   setupTableScrollHints();
 }
 
 function renderMain() {
   const el = document.getElementById("main");
+
+  if (state.clientMode) {
+    if (state.clientError) {
+      el.innerHTML = `<div class="empty-state"><h3>Link inválido</h3><p>${esc(state.clientError)}</p></div>`;
+      return;
+    }
+    if (state.platform === "google") { renderGoogleMain(el); return; }
+
+    // ---- Meta (cliente) ----
+    if (state.loading) { el.innerHTML = `<div class="loading">Carregando dados da conta…</div>`; return; }
+    if (state.error) {
+      el.innerHTML = `<div class="empty-state"><h3>Erro ao consultar os dados</h3><p>${esc(state.error)}</p><div style="display:flex;gap:10px;justify-content:center;margin-top:16px"><button class="secondary" id="retry-btn">Tentar de novo</button></div></div>`;
+      document.getElementById("retry-btn").onclick = () => loadAccountData();
+      return;
+    }
+    const pages = {
+      overview: renderOverview, campanhas: renderCampanhas, adsets: renderAdSets,
+      criativos: renderCriativos, benchmark: renderBenchmark,
+    };
+    el.innerHTML = (pages[state.currentPage] || renderOverview)();
+    setupTableScrollHints();
+    return;
+  }
 
   // Configurações sempre acessível, independente de plataforma, token ou erro
   if (state.currentPage === "configuracoes") {
@@ -2144,7 +2257,9 @@ function renderGoogleOverview() {
       </div>`;
   }).join("");
 
-  const accountName = (state.google.accounts.find(a => a.id === state.google.accountId) || {}).name || state.google.accountId;
+  const accountName = state.clientMode
+    ? state.clientName
+    : (state.google.accounts.find(a => a.id === state.google.accountId) || {}).name || state.google.accountId;
 
   return `
     <h1>Google Ads — Overview</h1>
@@ -2510,7 +2625,9 @@ async function loadGoogleAccountData() {
   state.google.loading = true; state.google.error = null; render();
   try {
     const { since, until } = state.period;
-    const params = { customerId: state.google.accountId, since, until };
+    const params = state.clientMode
+      ? { slug: state.clientSlug, since, until }
+      : { customerId: state.google.accountId, since, until };
     const [campaignsRes, adGroupsRes, adsRes, recsRes] = await Promise.all([
       googleAdsGet("campaigns", params),
       googleAdsGet("adgroups", params),
@@ -2544,8 +2661,44 @@ async function loadAccountData() {
   }
 }
 
+async function loadClientInfo() {
+  try {
+    const url = new URL("/api/client-info", window.location.origin);
+    url.searchParams.set("slug", state.clientSlug);
+    const res = await fetch(url.toString());
+    const json = await res.json();
+    if (!res.ok || json.error) throw new Error(json.error || "Link inválido.");
+    state.clientName = json.name || "";
+    state.clientHasMeta = !!json.meta;
+    state.clientHasGoogle = !!json.google;
+    if (json.meta) state.accountId = json.meta.accountId;
+    if (json.google) state.google.accountId = json.google.customerId;
+    state.platform = state.clientHasMeta ? "meta" : "google";
+    syncCurrentPageToPlatform();
+    document.title = `${state.clientName} — Blue Ads`;
+    return true;
+  } catch (err) {
+    state.clientError = err.message;
+    return false;
+  }
+}
+
 (async function init() {
   render();
+
+  if (state.clientMode) {
+    const ok = await loadClientInfo();
+    render();
+    if (ok) {
+      const tasks = [];
+      if (state.clientHasMeta) tasks.push(loadAccountData());
+      if (state.clientHasGoogle) tasks.push(loadGoogleAccountData());
+      await Promise.all(tasks);
+    }
+    render();
+    return;
+  }
+
   const tasks = [];
   if (state.token) tasks.push(bootstrapAccounts());
   tasks.push(loadGoogleAccounts());
