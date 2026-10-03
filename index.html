@@ -315,6 +315,74 @@
     padding: 2px 7px; border-radius: 3px;
     background: rgba(34,229,255,0.07); color: var(--cyan-dim); border: 1px solid rgba(34,229,255,0.15);
   }
+
+  /* ── Responsivo / Mobile ── */
+  @media (max-width: 860px) {
+    header {
+      flex-wrap: wrap; height: auto; min-height: 56px;
+      padding: 10px 14px; gap: 8px; row-gap: 10px;
+    }
+    header .brand { font-size: 13px; }
+    #platform-switch { order: 3; width: 100%; }
+    .platform-switch { width: 100%; justify-content: center; }
+    #header-controls { order: 2; width: 100%; }
+    .header-controls {
+      width: 100%; flex-wrap: wrap; gap: 8px;
+    }
+    .header-controls select,
+    .header-controls .period-select,
+    #account-select, #google-account-select, #status-scope-select {
+      width: 100% !important; min-width: 0 !important; flex: 1 1 140px;
+    }
+    .period-custom { width: 100%; flex-wrap: wrap; }
+    .period-custom input[type="date"] { flex: 1 1 120px; }
+    .client-name-badge {
+      width: 100%; text-align: center; white-space: normal !important;
+      padding: 2px 0 !important;
+    }
+
+    .layout { flex-direction: column; min-height: auto; }
+    nav.sidebar {
+      width: 100%; display: flex; flex-wrap: nowrap; overflow-x: auto;
+      -webkit-overflow-scrolling: touch; padding: 8px 10px; gap: 2px;
+      border-right: none; border-bottom: 1px solid var(--border);
+    }
+    nav.sidebar::-webkit-scrollbar { height: 4px; }
+    .nav-group-label { display: none; }
+    nav.sidebar a {
+      white-space: nowrap; margin-bottom: 0; flex-shrink: 0;
+      border-left: none; border-bottom: 2px solid transparent; padding: 8px 12px;
+    }
+    nav.sidebar a.active { border-left: none; border-bottom: 2px solid var(--cyan); }
+
+    main { padding: 16px; max-width: 100%; }
+    h1 { font-size: 18px; }
+
+    .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+    .metric-card { padding: 14px; }
+    .metric-card .value { font-size: 18px; }
+
+    .setup-card { margin: 32px auto; padding: 20px; max-width: calc(100% - 24px); }
+
+    .health-score-card { grid-template-columns: 1fr !important; gap: 18px !important; padding: 20px !important; text-align: center; }
+    .health-score-divider { display: none !important; }
+    .health-score-card-google { grid-template-columns: 1fr !important; gap: 14px !important; }
+    .evo-charts-grid { grid-template-columns: 1fr !important; }
+
+    .criativos-layout { flex-direction: column; align-items: stretch; }
+    .criativos-table-area { width: 100%; }
+    .ad-drawer {
+      width: 100% !important; margin-left: 0 !important; margin-top: 16px;
+      position: static !important; max-height: none !important;
+    }
+
+    table { font-size: 11px; }
+    thead th, tbody td { padding: 9px 10px; }
+  }
+
+  @media (max-width: 420px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -1076,7 +1144,7 @@ function renderEvolutionCharts() {
     return `<div class="empty-state"><h3>Série temporal não disponível</h3><p>Não foi possível carregar a evolução diária para o período selecionado.</p></div>`;
   }
   return `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="evo-charts-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
         <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px">Investimento por dia</p>
         ${buildLineChart(series, { key: "spend", label: "Investimento", color: "#22e5ff", isCurrency: true })}
@@ -1177,7 +1245,11 @@ function periodControlsHtml() {
 }
 
 function refreshConnectedPlatforms() {
-  if (state.token && state.accountId) loadAccountData();
+  // Em modo cliente não existe state.token (o token nunca chega ao
+  // navegador do cliente) — usar clientHasMeta pra decidir se recarrega os
+  // dados do Meta nesse caso, senão a troca de período nunca atualiza a
+  // aba Meta de um cliente que tenha conta Meta configurada.
+  if ((state.clientMode ? state.clientHasMeta : state.token) && state.accountId) loadAccountData();
   if (state.google.accountId) loadGoogleAccountData();
 }
 
@@ -1216,7 +1288,7 @@ function renderHeader() {
     el.innerHTML = `
       <div class="header-controls">
         ${periodControlsHtml()}
-        <span style="font-size:12px;color:var(--text-secondary);padding:0 6px;white-space:nowrap">${esc(state.clientName)}</span>
+        <span class="client-name-badge" style="font-size:12px;color:var(--text-secondary);padding:0 6px;white-space:nowrap">${esc(state.clientName)}</span>
       </div>`;
     bindPeriodControls();
     return;
@@ -1554,7 +1626,7 @@ function renderOverview() {
     </div>
 
     <!-- Health Score card -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;display:grid;grid-template-columns:200px 1px 1fr;gap:32px;align-items:center;margin-bottom:28px">
+    <div class="health-score-card" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;display:grid;grid-template-columns:200px 1px 1fr;gap:32px;align-items:center;margin-bottom:28px">
       <!-- Score number -->
       <div>
         <p style="font-size:10px;font-weight:700;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin:0 0 12px">Health Score</p>
@@ -1565,7 +1637,7 @@ function renderOverview() {
         <span style="font-size:10px;font-weight:700;letter-spacing:0.2em;color:${overColor};padding:4px 10px;background:${scoreBg(hs.score)};border-radius:3px;border:1px solid ${overColor}30">${overLabel}</span>
       </div>
       <!-- Divider -->
-      <div style="width:1px;height:100%;background:rgba(22,50,74,0.6)"></div>
+      <div class="health-score-divider" style="width:1px;height:100%;background:rgba(22,50,74,0.6)"></div>
       <!-- Score bars -->
       <div style="display:flex;flex-direction:column;gap:14px">
         ${barsHtml}
@@ -2275,7 +2347,7 @@ function renderGoogleOverview() {
       <div class="metric-card"><div class="label">Custo/Conversão</div><div class="value">${fmtCurrency(costPerConversion)}</div></div>
     </div>
 
-    <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;margin:24px 0;align-items:start">
+    <div class="health-score-card-google" style="display:grid;grid-template-columns:220px 1fr;gap:24px;margin:24px 0;align-items:start">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center">
         <p style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px">Health Score</p>
         <div style="font-size:40px;font-weight:700;color:${overColor};font-family:var(--font-display)">${hs.score}</div>
