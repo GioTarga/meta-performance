@@ -7,6 +7,7 @@
 //   adgroups        -> métricas agregadas por grupo de anúncios
 //   ads             -> métricas agregadas por anúncio
 //   recommendations -> optimization score + recomendações de orçamento + impression share
+//   timeseries      -> métricas agregadas por dia (toda a conta), pro gráfico de evolução diária
 //
 // Por quê um proxy em vez de chamar o Windsor direto do navegador?
 //   1) A API do Windsor só aceita api_key como query param (sem header),
@@ -59,6 +60,28 @@ async function readDailyFromSupabase(slug, level, since, until) {
     clicks: 0,
     conversions: 0,
   }));
+}
+
+// Mesma ideia de readDailyFromSupabase, mas agrupando por data (soma de todas
+// as campanhas da conta no dia) em vez de por entidade — é o formato que o
+// gráfico de evolução diária (ex.: conversões por dia) espera. Usa level
+// "campaign" pra não contar o mesmo investimento em duplicidade (adgroup/ad
+// são granularidades menores da mesma campanha).
+async function readDailyTimeSeriesFromSupabase(slug, since, until) {
+  const rows = await select(
+    "blue_ads_google_daily",
+    `select=date,spend,impressions,clicks,conversions&client_slug=eq.${encodeURIComponent(slug)}&level=eq.campaign&date=gte.${since}&date=lte.${until}`
+  );
+  const byDate = new Map();
+  for (const r of rows) {
+    if (!byDate.has(r.date)) byDate.set(r.date, { date: r.date, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+    const d = byDate.get(r.date);
+    d.spend += Number(r.spend || 0);
+    d.impressions += Number(r.impressions || 0);
+    d.clicks += Number(r.clicks || 0);
+    d.conversions += Number(r.conversions || 0);
+  }
+  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 async function windsorGet(baseUrl, params, apiKey) {
@@ -127,6 +150,20 @@ module.exports = async (req, res) => {
   // (fica em Recomendações/Andromeda, página só-admin) e "accounts" é só do
   // seletor de contas do Gio — por isso nenhum dos dois precisa de um
   // caminho via banco.
+  if (slug && kind === "timeseries") {
+    if (!since || !until) {
+      res.status(400).json({ error: "Parâmetros since e until (YYYY-MM-DD) são obrigatórios." });
+      return;
+    }
+    try {
+      const timeSeries = await readDailyTimeSeriesFromSupabase(slug, since, until);
+      res.status(200).json({ timeSeries });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Erro ao consultar dados do Supabase." });
+    }
+    return;
+  }
+
   if (slug && (kind === "campaigns" || kind === "adgroups" || kind === "ads")) {
     if (!since || !until) {
       res.status(400).json({ error: "Parâmetros since e until (YYYY-MM-DD) são obrigatórios." });
@@ -275,6 +312,35 @@ module.exports = async (req, res) => {
         conversions: 0,
       })).sort((a, b) => b.spend - a.spend);
       res.status(200).json({ ads });
+      return;
+    }
+
+    if (kind === "timeseries") {
+      const { res: wRes, json: wJson } = await windsorGet(
+        CONNECTOR_URL,
+        {
+          fields: "date,spend,clicks,impressions,conversions",
+          date_from: since,
+          date_to: until,
+          select_accounts: customerId,
+        },
+        WINDSOR_API_KEY
+      );
+      if (!wRes.ok || wJson.error) {
+        res.status(wRes.ok ? 502 : wRes.status).json({ error: wJson.error || `Erro na API do Windsor.ai (${wRes.status})` });
+        return;
+      }
+      const byDate = new Map();
+      for (const r of wJson.data || []) {
+        if (!byDate.has(r.date)) byDate.set(r.date, { date: r.date, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+        const d = byDate.get(r.date);
+        d.spend += Number(r.spend || 0);
+        d.impressions += Number(r.impressions || 0);
+        d.clicks += Number(r.clicks || 0);
+        d.conversions += Number(r.conversions || 0);
+      }
+      const timeSeries = Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+      res.status(200).json({ timeSeries });
       return;
     }
 
