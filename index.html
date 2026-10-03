@@ -378,6 +378,39 @@
 
     table { font-size: 11px; }
     thead th, tbody td { padding: 9px 10px; }
+
+    /* ── Tabelas de listagem (Campanhas, Ad Sets, Grupos de Anúncios,
+       Anúncios) viram cards empilhados no celular em vez de linhas de
+       tabela com rolagem horizontal — bem mais fácil de ler no mobile. ── */
+    .table-wrap:has(table.responsive-table) { overflow-x: visible; box-shadow: none !important; }
+    .table-wrap:has(table.responsive-table) + .scroll-nudge { display: none !important; }
+    table.responsive-table { border: none; border-radius: 0; background: transparent; }
+    table.responsive-table thead { display: none; }
+    table.responsive-table, table.responsive-table tbody { display: block; width: 100%; }
+    table.responsive-table tr {
+      display: block; margin-bottom: 10px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 4px 14px; overflow: hidden;
+    }
+    table.responsive-table tr:last-child { margin-bottom: 0; }
+    table.responsive-table td {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 8px 0; border-bottom: 1px solid rgba(22,50,74,0.4);
+      white-space: normal; text-align: right;
+    }
+    table.responsive-table td:last-child { border-bottom: none; }
+    table.responsive-table td::before {
+      content: attr(data-label); font-size: 10px; font-weight: 600; color: var(--cyan-dim);
+      text-transform: uppercase; letter-spacing: 0.05em; text-align: left; flex-shrink: 0; margin-right: 10px;
+    }
+    /* Primeira célula de cada linha (nome da campanha/ad set/grupo/anúncio)
+       vira o "título" do card: sem label, em destaque, no topo. */
+    table.responsive-table td:first-child {
+      display: block; text-align: left; white-space: normal;
+      font-size: 13px; font-weight: 700 !important; color: var(--text);
+      padding: 12px 0 10px; margin-bottom: 2px; border-bottom: 1px solid var(--border);
+    }
+    table.responsive-table td:first-child::before { content: none; }
   }
 
   @media (max-width: 600px) {
@@ -1746,20 +1779,20 @@ function renderCampanhas() {
     const budget = adSetBudgetByCampaign.has(c.id) ? adSetBudgetByCampaign.get(c.id) : c.dailyBudget;
     return `
     <tr>
-      <td style="font-weight:500">${esc(c.name)}</td>
-      <td>${statusBadgeHtml(c.effectiveStatus)}</td>
-      <td>${esc(c.objective) || "Não disponível"}</td>
-      <td>${fmtCurrency(c.metrics.spend)}</td>
-      <td>${fmtNum(c.metrics.results)}</td>
-      <td>${fmtCurrency(c.metrics.costPerResult)}</td>
-      <td>${fmtCurrency(c.metrics.cpm)}</td>
-      <td>${fmtNum(c.metrics.ctr, 2, "%")}</td>
-      <td>${fmtCurrency(budget)}</td>
-      <td>${badgeHtml(campaignHealth(c))}</td>
+      <td data-label="Campanha" style="font-weight:500">${esc(c.name)}</td>
+      <td data-label="Status">${statusBadgeHtml(c.effectiveStatus)}</td>
+      <td data-label="Objetivo">${esc(c.objective) || "Não disponível"}</td>
+      <td data-label="Investimento">${fmtCurrency(c.metrics.spend)}</td>
+      <td data-label="Resultados">${fmtNum(c.metrics.results)}</td>
+      <td data-label="Custo/resultado">${fmtCurrency(c.metrics.costPerResult)}</td>
+      <td data-label="CPM">${fmtCurrency(c.metrics.cpm)}</td>
+      <td data-label="CTR">${fmtNum(c.metrics.ctr, 2, "%")}</td>
+      <td data-label="Orçamento">${fmtCurrency(budget)}</td>
+      <td data-label="Saúde">${badgeHtml(campaignHealth(c))}</td>
     </tr>`;
   }).join("");
   return `<h1>Campanhas</h1><p class="subtitle">${campaigns.length} campanha(s) &middot; escopo: ${scopeLabel}</p>
-    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
+    <div class="table-wrap"><table class="responsive-table"><thead><tr><th>Campanha</th><th>Status</th><th>Objetivo</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>CPM</th><th>CTR</th><th>Orçamento</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
 }
 
 function renderAdSets() {
@@ -1768,21 +1801,21 @@ function renderAdSets() {
   if (adSets.length === 0) return `<h1>Ad Sets</h1><div class="empty-state"><h3>Nenhum ad set encontrado</h3><p>Não há ad sets para o escopo "${scopeLabel}" nesta conta e período.</p></div>`;
   const rows = adSets.map(a => `
     <tr>
-      <td style="font-weight:500">${esc(a.name)}
+      <td data-label="Ad set" style="font-weight:500">${esc(a.name)}
         <div>${a.saturationFlag ? '<span class="flag red">Saturado</span>' : ""}${a.audienceTooSmallFlag ? '<span class="flag red">Audiência pequena</span>' : ""}${a.reviewCandidateFlag ? '<span class="flag amber">Revisão</span>' : ""}</div>
       </td>
-      <td>${statusBadgeHtml(a.effectiveStatus)}</td>
-      <td>${esc(a.campaignName)}</td>
-      <td>${fmtCurrency(a.metrics.spend)}</td>
-      <td>${fmtNum(a.metrics.results)}</td>
-      <td>${fmtCurrency(a.metrics.costPerResult)}</td>
-      <td>${fmtNum(a.metrics.frequency, 2)}</td>
-      <td>${a.estimatedAudience !== null ? fmtNum(a.estimatedAudience) : "Não disponível"}</td>
-      <td>${a.daysActive ?? "Não disponível"}</td>
-      <td>${badgeHtml(adSetHealth(a))}</td>
+      <td data-label="Status">${statusBadgeHtml(a.effectiveStatus)}</td>
+      <td data-label="Campanha">${esc(a.campaignName)}</td>
+      <td data-label="Investimento">${fmtCurrency(a.metrics.spend)}</td>
+      <td data-label="Resultados">${fmtNum(a.metrics.results)}</td>
+      <td data-label="Custo/resultado">${fmtCurrency(a.metrics.costPerResult)}</td>
+      <td data-label="Frequência">${fmtNum(a.metrics.frequency, 2)}</td>
+      <td data-label="Audiência est.">${a.estimatedAudience !== null ? fmtNum(a.estimatedAudience) : "Não disponível"}</td>
+      <td data-label="Dias ativo">${a.daysActive ?? "Não disponível"}</td>
+      <td data-label="Saúde">${badgeHtml(adSetHealth(a))}</td>
     </tr>`).join("");
   return `<h1>Ad Sets</h1><p class="subtitle">${adSets.length} ad set(s) &middot; escopo: ${scopeLabel}</p>
-    <div class="table-wrap"><table><thead><tr><th>Ad set</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
+    <div class="table-wrap"><table class="responsive-table"><thead><tr><th>Ad set</th><th>Status</th><th>Campanha</th><th>Investimento</th><th>Resultados</th><th>Custo/resultado</th><th>Frequência</th><th>Audiência est.</th><th>Dias ativo</th><th>Saúde</th></tr></thead><tbody>${rows}</tbody></table></div><p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
 }
 
 function renderCriativos() {
@@ -2391,18 +2424,18 @@ function renderGoogleCampanhas() {
   if (campaigns.length === 0) return `<h1>Campanhas</h1><div class="empty-state"><h3>Nenhuma campanha encontrada</h3><p>Não há campanhas para esta conta e período.</p></div>`;
   const rows = campaigns.map(c => `
     <tr>
-      <td style="font-weight:500">${esc(c.name)}</td>
-      <td>${googleStatusBadge(c.status)}</td>
-      <td>${fmtCurrency(c.spend)}</td>
-      <td>${fmtNum(c.impressions)}</td>
-      <td>${fmtNum(c.clicks)}</td>
-      <td>${fmtNum(c.ctr, 2, "%")}</td>
-      <td>${fmtCurrency(c.avgCpc)}</td>
-      <td>${fmtNum(c.conversions, 1)}</td>
-      <td>${c.conversions > 0 ? fmtCurrency(c.spend / c.conversions) : "Não disponível"}</td>
+      <td data-label="Campanha" style="font-weight:500">${esc(c.name)}</td>
+      <td data-label="Status">${googleStatusBadge(c.status)}</td>
+      <td data-label="Investimento">${fmtCurrency(c.spend)}</td>
+      <td data-label="Impressões">${fmtNum(c.impressions)}</td>
+      <td data-label="Cliques">${fmtNum(c.clicks)}</td>
+      <td data-label="CTR">${fmtNum(c.ctr, 2, "%")}</td>
+      <td data-label="CPC médio">${fmtCurrency(c.avgCpc)}</td>
+      <td data-label="Conversões">${fmtNum(c.conversions, 1)}</td>
+      <td data-label="Custo/Conversão">${c.conversions > 0 ? fmtCurrency(c.spend / c.conversions) : "Não disponível"}</td>
     </tr>`).join("");
   return `<h1>Campanhas</h1><p class="subtitle">${campaigns.length} campanha(s) · dados via Windsor.ai</p>
-    <div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC médio</th><th>Conversões</th><th>Custo/Conversão</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="table-wrap"><table class="responsive-table"><thead><tr><th>Campanha</th><th>Status</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC médio</th><th>Conversões</th><th>Custo/Conversão</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
 }
 
@@ -2411,18 +2444,18 @@ function renderGoogleAdGroups() {
   if (adGroups.length === 0) return `<h1>Grupos de Anúncios</h1><div class="empty-state"><h3>Nenhum grupo de anúncios encontrado</h3><p>Não há dados para esta conta e período.</p></div>`;
   const rows = adGroups.map(a => `
     <tr>
-      <td style="font-weight:500">${esc(a.name)}</td>
-      <td>${esc(a.campaignName)}</td>
-      <td>${googleStatusBadge(a.status)}</td>
-      <td>${fmtCurrency(a.spend)}</td>
-      <td>${fmtNum(a.impressions)}</td>
-      <td>${fmtNum(a.clicks)}</td>
-      <td>${fmtNum(a.ctr, 2, "%")}</td>
-      <td>${fmtCurrency(a.avgCpc)}</td>
-      <td>${fmtNum(a.conversions, 1)}</td>
+      <td data-label="Grupo de anúncios" style="font-weight:500">${esc(a.name)}</td>
+      <td data-label="Campanha">${esc(a.campaignName)}</td>
+      <td data-label="Status">${googleStatusBadge(a.status)}</td>
+      <td data-label="Investimento">${fmtCurrency(a.spend)}</td>
+      <td data-label="Impressões">${fmtNum(a.impressions)}</td>
+      <td data-label="Cliques">${fmtNum(a.clicks)}</td>
+      <td data-label="CTR">${fmtNum(a.ctr, 2, "%")}</td>
+      <td data-label="CPC médio">${fmtCurrency(a.avgCpc)}</td>
+      <td data-label="Conversões">${fmtNum(a.conversions, 1)}</td>
     </tr>`).join("");
   return `<h1>Grupos de Anúncios</h1><p class="subtitle">${adGroups.length} grupo(s) de anúncios · dados via Windsor.ai</p>
-    <div class="table-wrap"><table><thead><tr><th>Grupo de anúncios</th><th>Campanha</th><th>Status</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC médio</th><th>Conversões</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="table-wrap"><table class="responsive-table"><thead><tr><th>Grupo de anúncios</th><th>Campanha</th><th>Status</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC médio</th><th>Conversões</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="scroll-nudge">→ role para o lado para ver mais colunas</p>`;
 }
 
@@ -2431,18 +2464,18 @@ function renderGoogleAnuncios() {
   if (ads.length === 0) return `<h1>Anúncios</h1><div class="empty-state"><h3>Nenhum anúncio encontrado</h3><p>Não há dados para esta conta e período.</p></div>`;
   const rows = ads.map(a => `
     <tr>
-      <td style="font-weight:500">${esc(a.adGroupName)}</td>
-      <td>${esc(a.campaignName)}</td>
-      <td>${googleStatusBadge(a.status)}</td>
-      <td>${adStrengthBadge(a.adStrength)}</td>
-      <td>${fmtCurrency(a.spend)}</td>
-      <td>${fmtNum(a.impressions)}</td>
-      <td>${fmtNum(a.clicks)}</td>
-      <td>${fmtNum(a.ctr, 2, "%")}</td>
-      <td>${fmtNum(a.conversions, 1)}</td>
+      <td data-label="Grupo de anúncios" style="font-weight:500">${esc(a.adGroupName)}</td>
+      <td data-label="Campanha">${esc(a.campaignName)}</td>
+      <td data-label="Status">${googleStatusBadge(a.status)}</td>
+      <td data-label="Força do anúncio">${adStrengthBadge(a.adStrength)}</td>
+      <td data-label="Investimento">${fmtCurrency(a.spend)}</td>
+      <td data-label="Impressões">${fmtNum(a.impressions)}</td>
+      <td data-label="Cliques">${fmtNum(a.clicks)}</td>
+      <td data-label="CTR">${fmtNum(a.ctr, 2, "%")}</td>
+      <td data-label="Conversões">${fmtNum(a.conversions, 1)}</td>
     </tr>`).join("");
   return `<h1>Anúncios</h1><p class="subtitle">${ads.length} anúncio(s) · dados via Windsor.ai</p>
-    <div class="table-wrap"><table><thead><tr><th>Grupo de anúncios</th><th>Campanha</th><th>Status</th><th>Força do anúncio</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Conversões</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="table-wrap"><table class="responsive-table"><thead><tr><th>Grupo de anúncios</th><th>Campanha</th><th>Status</th><th>Força do anúncio</th><th>Investimento</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Conversões</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="scroll-nudge">→ role para o lado para ver mais colunas</p>
     <p style="font-size:12px;color:var(--text-muted);margin-top:14px">Alguns anúncios podem não exibir títulos/descrições individuais dependendo do tipo de anúncio da conta (ex.: anúncios de texto expandido legados).</p>`;
 }
