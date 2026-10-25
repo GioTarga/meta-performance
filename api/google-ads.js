@@ -369,8 +369,25 @@ module.exports = async (req, res) => {
           byCampaign.set(key, r);
         }
       }
+      // Impression share é métrica de PERÍODO: pede sem a dimensão "date" para o Windsor/Google
+      // agregarem ponderado pelo volume (o valor de um único dia é muito ruidoso em contas pequenas).
+      const isByCampaign = new Map();
+      const { res: isRes, json: isJson } = await windsorGet(
+        CONNECTOR_URL,
+        {
+          fields: "campaign_id,search_impression_share,search_budget_lost_impression_share,search_rank_lost_impression_share",
+          date_from: since,
+          date_to: until,
+          select_accounts: customerId,
+        },
+        WINDSOR_API_KEY
+      );
+      if (isRes.ok && !isJson.error) {
+        for (const r of isJson.data || []) isByCampaign.set(r.campaign_id, r);
+      }
       const recommendations = Array.from(byCampaign.values())
         .filter((r) => r.campaign_status === "ENABLED")
+        .map((r) => ({ ...r, ...(isByCampaign.get(r.campaign_id) || {}) }))
         .map((r) => ({
           campaignId: r.campaign_id,
           campaignName: r.campaign,

@@ -2254,6 +2254,14 @@ function googleAccountTotals(campaigns) {
   return { totalSpend, totalImpressions, totalClicks, totalConversions, ctr, cpc, convRate, costPerConversion };
 }
 
+// % de impression share perdida → nota 0-100 alinhada às faixas do diagnóstico:
+// até 10% = saudável (≥70) · 10–30% = atenção (40–69) · acima de 30% = crítico (<40), zerando em 70%
+function lostIsScore(lost) {
+  if (lost <= 10) return 100 - lost * 3;
+  if (lost <= 30) return 70 - (lost - 10) * 1.5;
+  return Math.max(0, 39 - (lost - 30) * (39 / 40));
+}
+
 function googleHealthScore(campaigns, recommendations) {
   const { ctr, convRate, cpc } = googleAccountTotals(campaigns);
   const ctrScore = ctr === null ? 50 : Math.min(100, Math.max(0, (ctr / BENCHMARK_GOOGLE.ctr.max) * 100));
@@ -2270,14 +2278,19 @@ function googleHealthScore(campaigns, recommendations) {
 
   const validRankLost = recommendations.filter(r => r.searchRankLostIS !== null);
   const avgRankLost = validRankLost.length ? validRankLost.reduce((s, r) => s + r.searchRankLostIS, 0) / validRankLost.length : null;
-  const rankScore = avgRankLost === null ? 50 : Math.min(100, Math.max(0, 100 - avgRankLost * 2));
+  const rankScore = avgRankLost === null ? 50 : lostIsScore(avgRankLost);
 
-  const score = Math.round(optScore * 0.3 + ctrScore * 0.2 + convScore * 0.15 + cpcScore * 0.1 + isScore * 0.125 + rankScore * 0.125);
+  const validBudgetLost = recommendations.filter(r => r.searchBudgetLostIS !== null);
+  const avgBudgetLost = validBudgetLost.length ? validBudgetLost.reduce((s, r) => s + r.searchBudgetLostIS, 0) / validBudgetLost.length : null;
+  const budgetScore = avgBudgetLost === null ? 50 : lostIsScore(avgBudgetLost);
+
+  const score = Math.round(optScore * 0.3 + ctrScore * 0.2 + convScore * 0.15 + cpcScore * 0.1 + isScore * 0.1 + rankScore * 0.1 + budgetScore * 0.05);
   return {
     score: Math.min(100, Math.max(0, score)),
     optScore: Math.round(optScore), ctrScore: Math.round(ctrScore), convScore: Math.round(convScore),
     cpcScore: Math.round(cpcScore), isScore: Math.round(isScore), rankScore: Math.round(rankScore),
-    avgOpt, avgIS, avgRankLost,
+    budgetScore: Math.round(budgetScore),
+    avgOpt, avgIS, avgRankLost, avgBudgetLost,
   };
 }
 
@@ -2288,6 +2301,7 @@ function diagMessageGoogle(key, score) {
     "Conversão":          ["Taxa de conversão crítica. Revisar páginas de destino e lances.",                 "Taxa de conversão abaixo do ideal. Monitorar e ajustar lances.",          "Taxa de conversão saudável."],
     "Impression Share":   ["Baixa participação em impressões. Orçamento ou lances limitando o alcance.",      "Participação em impressões em zona de atenção.",                         "Boa participação em impressões de pesquisa."],
     "Rank Perdido":       ["Alta perda de impressões por rank de anúncio. Melhorar qualidade/lances.",        "Perda de impressões por rank em zona de atenção.",                       "Pouca ou nenhuma perda de impressões por rank."],
+    "Orçamento Perdido":  ["Alta perda de impressões por orçamento. Avaliar aumento de verba.",              "Perda de impressões por orçamento em zona de atenção.",                  "Orçamento não está limitando a veiculação."],
   };
   const msgs = map[key] || ["", "", ""];
   return score < 40 ? msgs[0] : score < 70 ? msgs[1] : msgs[2];
@@ -2357,7 +2371,8 @@ function renderGoogleOverview() {
     { label: "CTR",             score: hs.ctrScore },
     { label: "Conversão",       score: hs.convScore },
     { label: "Impression Share", score: hs.isScore },
-    { label: "Rank Perdido",    score: hs.rankScore },
+    { label: "Rank Perdido",    score: hs.rankScore,   raw: hs.avgRankLost },
+    { label: "Orçamento Perdido", score: hs.budgetScore, raw: hs.avgBudgetLost },
   ];
   const barsHtml = scoreRows.map(({ label, score }) => `
     <div style="display:flex;align-items:center;gap:12px">
@@ -2369,7 +2384,7 @@ function renderGoogleOverview() {
     </div>`).join("");
 
   const diagEntries = [...scoreRows].sort((a, b) => a.score - b.score);
-  const diagHtml = diagEntries.map(({ label, score }) => {
+  const diagHtml = diagEntries.map(({ label, score, raw }) => {
     const cls = score < 40 ? "diag-critical" : score < 70 ? "diag-warning" : "diag-good";
     const txtColor = score < 40 ? "var(--red-text)" : score < 70 ? "var(--amber-text)" : "var(--green-text)";
     const tagBg    = score < 40 ? "var(--red-bg)"   : score < 70 ? "var(--amber-bg)"   : "var(--green-bg)";
@@ -2378,7 +2393,7 @@ function renderGoogleOverview() {
       <div class="${cls}" style="border-radius:6px;padding:14px 16px;display:flex;align-items:center;gap:16px">
         <div style="flex:1">
           <span style="font-size:13px;font-weight:700;color:var(--text)">${label}</span>
-          <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${score}/100</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${score}/100${raw !== undefined && raw !== null ? ` · ${raw.toFixed(1)}% perdido` : ""}</span>
           <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;line-height:1.4">${diagMessageGoogle(label, score)}</p>
         </div>
         <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;color:${txtColor};padding:3px 8px;background:${tagBg};border-radius:3px;white-space:nowrap">${tagLabel}</span>
