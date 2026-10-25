@@ -2334,20 +2334,28 @@ function generateGoogleAlerts(campaigns, adGroups, ads, recommendations) {
         recommendation: "Revisar lances, relevância dos anúncios e experiência da página de destino." });
     }
   });
-  const weakAds = ads.filter(a => a.adStrength === "POOR" || a.adStrength === "AVERAGE");
+  // Só considera anúncios ativos dentro de grupos ativos (campanha + nome, pois nomes de grupo podem repetir entre campanhas)
+  const groupKey = (campaignName, groupName) => `${campaignName}::${groupName}`;
+  const enabledGroups = adGroups.filter(g => g.status === "ENABLED");
+  const enabledGroupKeys = new Set(enabledGroups.map(g => groupKey(g.campaignName, g.name)));
+  const activeAds = ads.filter(a => a.status === "ENABLED" && enabledGroupKeys.has(groupKey(a.campaignName, a.adGroupName)));
+
+  const weakAds = activeAds.filter(a => a.adStrength === "POOR" || a.adStrength === "AVERAGE");
   if (weakAds.length > 0) {
+    const weakGroupNames = [...new Set(weakAds.map(a => a.adGroupName))].join(", ");
     alerts.push({ level: "oportunidade",
-      problem: `${weakAds.length} anúncio(s) com força classificada como média ou fraca pelo Google Ads.`,
+      problem: `${weakAds.length} anúncio(s) com força classificada como média ou fraca pelo Google Ads (${weakGroupNames}).`,
       cause: "Poucas variações de título/descrição ou baixa relevância com o grupo de anúncios.",
       impact: "Anúncios mais fracos tendem a receber menos veiculação e CTR mais baixo.",
       recommendation: "Adicionar mais variações de títulos e descrições para melhorar a força do anúncio." });
   }
-  if (adGroups.length > 0 && ads.length / adGroups.length < 2) {
+  const avgAdsPerGroup = enabledGroups.length > 0 ? activeAds.length / enabledGroups.length : null;
+  if (avgAdsPerGroup !== null && avgAdsPerGroup < 1.5) {
     alerts.push({ level: "oportunidade",
-      problem: `A conta tem em média ${(ads.length / adGroups.length).toFixed(1)} anúncio(s) por grupo de anúncios.`,
+      problem: `A conta tem em média ${avgAdsPerGroup.toFixed(1)} anúncio(s) ativo(s) por grupo de anúncios ativo.`,
       cause: "Poucas variações de anúncio por grupo limitam o aprendizado do leilão.",
       impact: "Menor capacidade de encontrar a combinação de anúncio com melhor desempenho.",
-      recommendation: "Adicionar pelo menos 2-3 anúncios por grupo de anúncios." });
+      recommendation: "Avaliar ter 2 anúncios nos grupos com mais volume." });
   }
   if (alerts.length === 0 && campaigns.length > 0) {
     alerts.push({ level: "oportunidade", problem: "Nenhum problema crítico identificado nos dados coletados.",
